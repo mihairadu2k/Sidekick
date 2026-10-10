@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Producer Sidekick — Every music hero needs a Sidekick</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css?v=27" />
+
+
+
+
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="logo-group">
+        <div class="logo-icon" title="Producer Sidekick">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="9"></circle>
+            <path d="M12 3v4"></path>
+            <path d="M8 12l2.5 3L14 9l2 3"></path>
+          </svg>
+        </div>
+        <div class="logo-text">
+          <h1>The Producer Sidekick</h1>
+          <p class="subtitle">Every music hero needs a Sidekick</p>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <div id="ffmpegStatusBadge" class="status-pill checking">
+          <span class="dot"></span>
+          <span class="status-text">Audio Engine Ready</span>
+        </div>
+        <button id="btnOpenFolder" class="btn-secondary" title="Open Downloads in Finder">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+          </svg>
+          <span>Downloads</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- App Navigation Tabs -->
+    <nav class="app-nav-tabs">
+      <button id="tabBtnYoutube" class="nav-tab active">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 15v4c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2v-4M17 9l-5 5-5-5M12 12.8V2.5"/>
+        </svg>
+        <span>Download</span>
+      </button>
+
+      <button id="tabBtnCrate" class="nav-tab">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <circle cx="12" cy="12" r="10"></circle>
+          <circle cx="12" cy="12" r="3"></circle>
+          <line x1="12" y1="2" x2="12" y2="4"></line>
+          <line x1="12" y1="20" x2="12" y2="22"></line>
+        </svg>
+        <span>Crate Digging</span>
+      </button>
+
+      <button id="tabBtnChopper" class="nav-tab">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="6" cy="6" r="3"></circle>
+          <circle cx="6" cy="18" r="3"></circle>
+          <line x1="20" y1="4" x2="8.12" y2="15.88"></line>
+          <line x1="14.47" y1="14.48" x2="20" y2="20"></line>
+          <line x1="8.12" y1="8.12" x2="12" y2="12"></line>
+        </svg>
+        <span>Sample Slicer</span>
+      </button>
+    </nav>
+
+    <!-- Main Content Grid -->
+    <main class="main-content">
+      
+      <!-- TAB 1: YOUTUBE CONVERTER VIEW -->
+      <div id="viewYoutube" class="tab-view active">
+        <!-- Input Card -->
+        <section class="card input-card">
+          <div class="card-header">
+            <h2 id="cardTitleText">Download Audio or Video</h2>
+            <span class="pill-quality" id="qualityPill">320 kbps MP3</span>
+          </div>
+
+          <!-- Media Type Switcher: Audio vs Video -->
+          <div class="media-type-bar">
+            <div class="segmented-control" id="mediaTypeToggle">
+              <button type="button" class="segment-btn active" id="btnModeAudio" data-mode="audio">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M9 18V5l12-2v13"></path>
+                  <circle cx="6" cy="18" r="3"></circle>
+                  <circle cx="18" cy="16" r="3"></circle>
+                </svg>
+                <span>Audio</span>
+              </button>
+              <button type="button" class="segment-btn" id="btnModeVideo" data-mode="video">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
+                  <line x1="7" y1="2" x2="7" y2="22"></line>
+                  <line x1="17" y1="2" x2="17" y2="22"></line>
+                  <line x1="2" y1="12" x2="22" y2="12"></line>
+                  <line x1="2" y1="7" x2="7" y2="7"></line>
+                  <line x1="2" y1="17" x2="7" y2="17"></line>
+                  <line x1="17" y1="17" x2="22" y2="17"></line>
+                  <line x1="17" y1="7" x2="22" y2="7"></line>
+                </svg>
+                <span>Video</span>
+              </button>
+            </div>
+          </div>
+
+          <form id="urlForm" class="convert-form">
+            <div class="url-input-wrapper">
+              <div class="input-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                  <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                </svg>
+              </div>
+              <input 
+                type="text" 
+                id="youtubeUrl" 
+                placeholder="Paste YouTube link (video, track, or playlist)..." 
+                autocomplete="off" 
+                required
+              />
+              <button type="button" id="btnPaste" class="btn-icon-subtle" title="Paste from clipboard">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+                  <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+                </svg>
+              </button>
+            </div>
+
+            <div class="options-row">
+              <div class="option-group">
+                <label for="audioQuality" id="formatLabel">Format & Quality</label>
+                <div class="select-wrapper">
+                  <select id="audioQuality">
+                    <optgroup label="🎵 Audio Formats" id="optgroupAudio">
+                      <option value="320k" selected>MP3 — 320 kbps (Studio High Quality)</option>
+                      <option value="256k">MP3 — 256 kbps (Very High)</option>
+                      <option value="192k">MP3 — 192 kbps (Standard)</option>
+                      <option value="128k">MP3 — 128 kbps (Compact)</option>
+                      <option value="flac">FLAC — Lossless (Hi-Res)</option>
+                      <option value="m4a">M4A / AAC — 256 kbps (Apple High Quality)</option>
+                      <option value="wav">WAV — Lossless PCM</option>
+                    </optgroup>
+                    <optgroup label="🎬 Video Formats" id="optgroupVideo">
+                      <option value="mp4_best">MP4 Video — Best Quality (1080p / 4K)</option>
+                      <option value="mp4_1080">MP4 Video — 1080p Full HD</option>
+                      <option value="mp4_720">MP4 Video — 720p HD</option>
+                      <option value="mp4_480">MP4 Video — 480p (Compact)</option>
+                      <option value="mkv_best">MKV Video — Best Quality</option>
+                    </optgroup>
+                  </select>
+                </div>
+              </div>
+
+              <div class="toggle-group">
+                <label class="switch-container">
+                  <input type="checkbox" id="embedCover" checked />
+                  <span class="slider"></span>
+                  <span class="label-text">Embed Cover Art</span>
+                </label>
+                <label class="switch-container">
+                  <input type="checkbox" id="embedTags" checked />
+                  <span class="slider"></span>
+                  <span class="label-text">Auto Tags & Metadata</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="action-row">
+              <button type="button" id="btnInspect" class="btn-secondary">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <span>Inspect</span>
+              </button>
+              <button type="submit" id="btnDownload" class="btn-primary">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="7 10 12 15 17 10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+                <span id="btnDownloadText">Download Audio</span>
+              </button>
+            </div>
+          </form>
+
+          <!-- Preview Card (Hidden by default) -->
+          <div id="previewContainer" class="preview-container hidden">
+            <div class="preview-card">
+              <div class="preview-thumb-wrap">
+                <img id="previewThumbnail" src="" alt="Thumbnail" />
+                <span id="previewDuration" class="duration-badge">0:00</span>
+              </div>
+              <div class="preview-info">
+                <div class="preview-tag" id="previewType">Single Video</div>
+                <h3 id="previewTitle">Song Title</h3>
+                <p id="previewArtist" class="preview-sub">Artist Name</p>
+                
+                <!-- Editable Tags -->
+                <div class="custom-tags-box">
+                  <div class="tag-field">
+                    <label>Title:</label>
+                    <input type="text" id="customTitleInput" placeholder="Auto-detected" />
+                  </div>
+                  <div class="tag-field">
+                    <label>Artist:</label>
+                    <input type="text" id="customArtistInput" placeholder="Auto-detected" />
+                  </div>
+                </div>
+
+                <div class="preview-actions-row">
+                  <button type="button" id="btnPreviewToggleFavorite" class="btn-preview-fav" title="Save to favorites">
+                    <span id="previewFavIcon">🤍 Save</span>
+                  </button>
+                  <button type="button" id="btnFindSimilar" class="btn-similar">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                    </svg>
+                    <span>Similar Songs</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Similar Songs Recommendations (Hidden by default) -->
+            <div id="similarTracksContainer" class="similar-tracks-wrap hidden">
+              <div class="similar-header">
+                <div class="similar-title-group">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                  </svg>
+                  <h4>Similar Songs (<span id="similarCount">0</span>)</h4>
+                </div>
+                <span class="pill-quality">Related Tracks</span>
+              </div>
+              
+              <!-- Loading spinner for similar songs -->
+              <div id="similarLoading" class="similar-loading hidden">
+                <div class="similar-spinner"></div>
+                <span>Finding similar songs...</span>
+              </div>
+
+              <!-- Grid of recommended songs -->
+              <div id="similarTracksList" class="similar-tracks-grid"></div>
+            </div>
+
+            <!-- Playlist Items Table (if playlist) -->
+            <div id="playlistTracksContainer" class="playlist-tracks-wrap hidden">
+              <div class="playlist-header">
+                <h4>Playlist Tracks (<span id="playlistCount">0</span>)</h4>
+                <button id="btnSelectAll" class="btn-tiny">Toggle All</button>
+              </div>
+              <div id="playlistTracksList" class="playlist-list"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Active Tasks & Live Progress -->
+        <section class="card queue-card">
+          <div class="card-header">
+            <div class="queue-title-group">
+              <h2>Downloads in Progress</h2>
+              <span id="activeTasksCount" class="counter-badge">0</span>
+            </div>
+            <div class="queue-header-actions">
+              <button type="button" id="btnClearCompleted" class="btn-tiny" title="Remove completed downloads">Clear Finished</button>
+              <button type="button" id="btnStopAll" class="btn-danger-sm" title="Stop all downloads">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                  <rect x="4" y="4" width="16" height="16" rx="2"></rect>
+                </svg>
+                <span>Stop All</span>
+              </button>
+            </div>
+          </div>
+          <div id="tasksList" class="tasks-list">
+            <div class="empty-state" id="emptyQueue">
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+              </svg>
+              <p>No active downloads. Paste a link or dig records below.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Downloaded Library & Audio Player -->
+        <section class="card library-card">
+          <div class="card-header">
+            <h2>Saved Library</h2>
+            <div class="library-controls">
+              <input type="text" id="searchLibrary" placeholder="Search saved audio..." />
+              <button id="btnRefreshLibrary" class="btn-icon-subtle" title="Refresh list">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="23 4 23 10 17 10"></polyline>
+                  <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div id="libraryList" class="library-list">
+            <div class="empty-state" id="emptyLibrary">
+              <p>No files downloaded yet.</p>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- TAB 2: CRATE DIGGER VIEW -->
+      <div id="viewCrate" class="tab-view hidden">
+        <!-- Crate Header / Hero Card -->
+        <section class="card crate-hero-card">
+          <div class="crate-hero-content">
+            <h2>Crate Digging</h2>
+            <p class="crate-hero-subtitle">
+              Browse obscure vinyl rips, library records, and vintage recordings on YouTube for sampling.
+            </p>
+          </div>
+
+          <!-- Quick Action Bar: Surprise Me & Seed Rabbit Hole -->
+          <div class="crate-action-bar">
+            <!-- Surprise Me Button -->
+            <button id="btnSurpriseMe" class="btn-surprise-me" title="Find a random record">
+              <span class="dice-icon">🎲</span>
+              <div class="btn-text-group">
+                <span class="primary-text">Random Record</span>
+                <span class="sub-text">Browse unexpected finds</span>
+              </div>
+            </button>
+
+            <!-- Dig Deeper / Rabbit Hole Search Bar -->
+            <div class="rabbit-hole-search-group">
+              <div class="rabbit-input-wrapper">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input
+                  type="text"
+                  id="crateRabbitHoleInput"
+                  placeholder="Enter an artist, song, or link (e.g. 'Cortex' or 'Bob James')..."
+                  autocomplete="off"
+                />
+              </div>
+              <button id="btnDigRabbitHole" class="btn-primary" style="padding: 0.75rem 1.25rem;">
+                <span>Search</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Era / Decade Selector -->
+          <div class="crate-eras-section">
+            <div class="crate-section-title">
+              <span>ERA / DECADE</span>
+            </div>
+            <div class="crate-era-pills" id="crateEraPills">
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+
+          <!-- Genre Crate Selectors -->
+          <div class="crate-genres-section">
+            <div class="crate-section-title">
+              <span>GENRES</span>
+            </div>
+            <div class="crate-genre-pills" id="crateGenrePills">
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+        </section>
+
+        <!-- Saved Crate Favorites Vault Section -->
+        <section id="crateFavoritesSection" class="card crate-favorites-card hidden">
+          <div class="favorites-header">
+            <div class="favorites-title-group">
+              <h3>Saved Records</h3>
+              <span class="favorites-count-pill" id="favoritesCountPill">0 saved</span>
+            </div>
+            <div class="favorites-actions">
+              <button id="btnClearFavorites" class="btn-text-subtle" title="Clear saved records">Clear All</button>
+            </div>
+          </div>
+          <p class="favorites-subtitle">
+            Saved tracks to sample later or use as seeds for finding similar music.
+          </p>
+          <div class="favorites-carousel" id="favoritesCarousel">
+            <!-- Rendered via JS -->
+          </div>
+        </section>
+
+        <!-- Digging Loading State -->
+        <div id="crateLoading" class="crate-loading-container hidden">
+          <div class="crate-loading-spinner"></div>
+          <div class="crate-loading-text" id="crateLoadingText">Searching YouTube records...</div>
+        </div>
+
+        <!-- Crate Results Deck -->
+        <section id="crateResultsDeck" class="crate-results-deck hidden">
+          <div class="deck-header">
+            <div class="deck-title-group">
+              <h3 id="crateDeckTitle">Discovered Records</h3>
+              <span class="deck-count-pill" id="crateDeckCount">0 tracks</span>
+            </div>
+            <div class="deck-filters">
+              <span class="deck-hint">Star any track to save it to your library</span>
+            </div>
+          </div>
+
+          <!-- Records Grid -->
+          <div class="crate-grid" id="crateGrid">
+            <!-- Rendered via JS -->
+          </div>
+        </section>
+
+        <!-- Embedded YouTube Audition Modal Player -->
+        <div id="crateAuditionModal" class="video-modal-backdrop hidden">
+          <div class="video-modal-card crate-yt-modal-card">
+            <div class="video-modal-header">
+              <div class="video-modal-title-group">
+                <span class="video-badge-pill">Player</span>
+                <h3 id="crateYtModalTitle">Track Title</h3>
+              </div>
+              <div class="header-modal-actions-right" style="display: flex; align-items: center; gap: 0.5rem;">
+                <button type="button" id="btnModalToggleFavorite" class="btn-icon-subtle" title="Save to favorites">
+                  <span id="modalFavIcon">🤍</span>
+                </button>
+                <button type="button" id="btnCloseCrateYtModal" class="btn-icon-subtle" title="Close Audition">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="crate-yt-iframe-container">
+              <iframe
+                id="crateYtIframe"
+                src=""
+                title="YouTube Audio Audition"
+                frameborder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowfullscreen
+              ></iframe>
+            </div>
+
+            <div class="video-modal-footer crate-modal-footer">
+              <div class="crate-hotspot-jumps">
+                <span class="hotspot-label">Jump to:</span>
+                <button class="btn-hotspot" data-pos="0">Intro</button>
+                <button class="btn-hotspot" data-pos="0.25">25%</button>
+                <button class="btn-hotspot" data-pos="0.50">50%</button>
+                <button class="btn-hotspot" data-pos="0.75">75%</button>
+              </div>
+
+              <div class="crate-modal-actions">
+                <button id="btnModalBadSuggestion" class="btn-bad-suggestion" title="Not relevant or not music? Hide similar tracks">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"></path>
+                  </svg>
+                  <span>Hide / Dislike</span>
+                </button>
+                <button id="btnModalSampleNow" class="btn-sample-now">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                  </svg>
+                  <span>Download Track</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Crate Feedback Dialog Modal -->
+        <div id="crateFeedbackModal" class="video-modal-backdrop hidden" style="z-index: 1050;">
+          <div class="video-modal-card feedback-modal-card">
+            <div class="video-modal-header">
+              <div class="video-modal-title-group">
+                <span class="video-badge-pill" style="background: var(--bg-surface-elevated); color: var(--accent-error); border: 1px solid var(--border-color);">Feedback</span>
+                <h3>Why isn't this relevant?</h3>
+              </div>
+              <button type="button" id="btnCloseFeedbackModal" class="btn-icon-subtle" title="Cancel">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
+            </div>
+            <div class="feedback-modal-body">
+              <p class="feedback-track-name" id="feedbackTrackTitle">Track Title</p>
+              <p class="feedback-subtext">This video will be hidden and excluded from future searches.</p>
+
+              <div class="feedback-reasons-grid">
+                <label class="feedback-option">
+                  <input type="radio" name="feedbackReason" value="talking_vlog" checked />
+                  <div class="option-content">
+                    <strong>Creator talk / Review / Vlog</strong>
+                    <span>Someone talking about records instead of the music itself</span>
+                  </div>
+                </label>
+
+                <label class="feedback-option">
+                  <input type="radio" name="feedbackReason" value="not_sampleable" />
+                  <div class="option-content">
+                    <strong>Not suitable for sampling</strong>
+                    <span>Vocals too dense, crowded arrangement, or unusable section</span>
+                  </div>
+                </label>
+
+                <label class="feedback-option">
+                  <input type="radio" name="feedbackReason" value="modern_pop" />
+                  <div class="option-content">
+                    <strong>Modern / Commercial track</strong>
+                    <span>Modern pop, mainstream commercial beat, or wrong style</span>
+                  </div>
+                </label>
+
+                <label class="feedback-option">
+                  <input type="radio" name="feedbackReason" value="poor_quality" />
+                  <div class="option-content">
+                    <strong>Poor audio quality</strong>
+                    <span>Severe clipping, loud hiss, or distorted transfer</span>
+                  </div>
+                </label>
+              </div>
+
+              <div class="feedback-optional-note">
+                <input type="text" id="feedbackOptionalNote" placeholder="Optional notes (e.g. channel name or details)..." />
+              </div>
+            </div>
+
+            <div class="feedback-modal-footer">
+              <button type="button" id="btnCancelFeedback" class="btn-secondary">Cancel</button>
+              <button type="button" id="btnSubmitFeedback" class="btn-submit-feedback">
+                <span>Save & Hide</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- TAB 3: CHOPPER & SKETCHPAD VIEW -->
+      <div id="viewChopper" class="tab-view hidden">
+        <!-- Empty State Prompt -->
+        <div id="chopperEmptyState" class="chopper-empty-state">
+          <div class="empty-icon-ring">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <circle cx="6" cy="6" r="3"></circle>
+              <circle cx="6" cy="18" r="3"></circle>
+              <line x1="20" y1="4" x2="8.12" y2="15.88"></line>
+              <line x1="14.47" y1="14.48" x2="20" y2="20"></line>
+              <line x1="8.12" y1="8.12" x2="12" y2="12"></line>
+            </svg>
+          </div>
+          <h2>Sample Slicer</h2>
+          <p class="empty-desc">
+            No track loaded. Download an audio track or choose a file from your library to slice and audition over drums.
+          </p>
+
+          <div class="chopper-quick-picker-box">
+            <div class="quick-picker-header">
+              <span>Select an audio file:</span>
+              <button class="btn-icon-subtle" onclick="window.refreshChopperFilePicker()" title="Refresh files">↻</button>
+            </div>
+            <div id="chopperRecentFilesList" class="chopper-recent-files-list">
+              <!-- Rendered dynamically -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Active Chopper Workspace -->
+        <div id="chopperActiveWorkspace" class="chopper-workspace hidden">
+          <!-- Top Bar: Track title, BPM, Drums & Controls -->
+          <div class="card chopper-control-bar">
+            <div class="chopper-track-meta">
+              <div id="chopperTrackHeader">
+                <!-- Title pill injected here -->
+              </div>
+              <span id="chopperLoadStatus" class="load-status-sub">Ready</span>
+            </div>
+
+            <!-- Transport & Tempo -->
+            <div class="chopper-transport-group">
+              <button id="btnChopperPlay" class="btn-primary btn-chopper-play">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                  <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                </svg>
+                <span>Play Beat & Chops</span>
+              </button>
+
+              <div class="tempo-control-box">
+                <span class="tempo-label">TEMPO</span>
+                <input type="number" id="chopperBpmInput" value="126" min="60" max="200" step="1" />
+                <span class="tempo-unit">BPM</span>
+              </div>
+            </div>
+
+            <!-- Drum Engine Bar -->
+            <div class="chopper-drum-engine-bar">
+              <div class="drum-kit-toggle">
+                <button type="button" class="kit-btn active" data-kit="909">909</button>
+                <button type="button" class="kit-btn" data-kit="808">808</button>
+              </div>
+
+              <div class="genre-select-wrap">
+                <label for="chopperGenreSelect" class="genre-label">Vibe:</label>
+                <select id="chopperGenreSelect" class="chopper-genre-dropdown">
+                  <option value="house">House (125 BPM)</option>
+                  <option value="tech_house">Tech House (127 BPM)</option>
+                  <option value="techno">Techno (132 BPM)</option>
+                  <option value="uk_garage">UK Garage (134 BPM)</option>
+                  <option value="dubstep">Dubstep (140 BPM)</option>
+                </select>
+              </div>
+
+              <button id="btnMuteDrums" class="btn-secondary btn-mute-drums" title="Toggle backing drum loop">
+                🥁 Drums ON
+              </button>
+            </div>
+          </div>
+
+          <!-- Ableton Simpler-Style Waveform & Slicing Controls -->
+          <div class="card chopper-waveform-card">
+            <div class="card-header waveform-header">
+              <div class="waveform-title-group">
+                <h3>Waveform & Range Slicer</h3>
+                <span class="waveform-hint">Click & drag on the waveform to set sample region. Slices map starting at <strong>C1</strong>.</span>
+              </div>
+
+              <div class="slice-tools-group">
+                <!-- Zoom Controls -->
+                <div class="zoom-controls-group">
+                  <span class="ctrl-sublabel">🔍 Zoom:</span>
+                  <button type="button" id="btnZoomOut" class="btn-tool-mini" title="Zoom Out (-)">−</button>
+                  <span id="zoomLevelLabel" class="zoom-level-text">1.0x</span>
+                  <button type="button" id="btnZoomIn" class="btn-tool-mini" title="Zoom In (+)">+</button>
+                  <button type="button" id="btnZoomReset" class="btn-tool-mini" title="Reset Zoom">Fit</button>
+                </div>
+
+                <!-- Gate % Slider -->
+                <div class="gate-control-group">
+                  <label for="chopperGateSlider" class="ctrl-sublabel" title="Controls how much of each chop plays before cutting off">
+                    🎚️ Gate: <span id="gateValLabel">100%</span>
+                  </label>
+                  <input type="range" id="chopperGateSlider" min="10" max="100" value="100" step="5" />
+                </div>
+
+                <!-- High-Pass & Low-Pass Filter Option -->
+                <div class="filter-controls-group">
+                  <div class="filter-knob-unit" title="High-Pass Filter: Cuts sub rumble and bass">
+                    <label for="chopperHpSlider" class="ctrl-sublabel">HP: <span id="hpValLabel">OFF</span></label>
+                    <input type="range" id="chopperHpSlider" min="20" max="1000" value="20" step="10" />
+                  </div>
+                  <div class="filter-knob-unit" title="Low-Pass Filter: Cuts harsh highs and makes it warm/underwater">
+                    <label for="chopperLpSlider" class="ctrl-sublabel">LP: <span id="lpValLabel">OFF</span></label>
+                    <input type="range" id="chopperLpSlider" min="1000" max="20000" value="20000" step="250" />
+                  </div>
+                </div>
+
+                <!-- Slicing Mode -->
+                <div class="slice-mode-bar">
+                  <span class="slice-mode-label">Mode:</span>
+                  <button type="button" class="slice-mode-btn" data-mode="transient">⚡ Transient</button>
+                  <button type="button" class="slice-mode-btn" data-mode="grid_4">1/4 Grid (4)</button>
+                  <button type="button" class="slice-mode-btn active" data-mode="grid_8">1/8 Grid (8)</button>
+                  <button type="button" class="slice-mode-btn" data-mode="grid_16">1/16 Grid (16)</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Waveform Canvas Area -->
+            <div class="waveform-canvas-container" id="waveformCanvasWrapper">
+              <canvas id="chopperWaveformCanvas" height="150"></canvas>
+              <!-- Interactive Click-to-Preview Cursor Indicator -->
+              <div id="waveformPlayheadLine" class="waveform-playhead-line hidden"></div>
+            </div>
+            
+            <div class="waveform-footer-bar">
+              <span class="waveform-hint-text">💡 <strong>Click anywhere</strong> to preview audio from that point. <strong>Shift+Click & Drag</strong> to reposition loop region.</span>
+              <button type="button" id="btnPreviewLoop" class="btn-secondary btn-mini" title="Audition entire selected loop region">
+                ▶ Audition Selection
+              </button>
+            </div>
+          </div>
+
+          <!-- Pads Matrix (Audition & Trigger) -->
+          <div class="card chopper-pads-card">
+            <div class="card-header">
+              <h3>Chop Pads (Keyboard: 1-8 & Q-I)</h3>
+              <span class="keyboard-legend">Click pad to audition or highlight for sequencing</span>
+            </div>
+            <div id="chopperPadsGrid" class="chopper-pads-grid">
+              <!-- 8 or 16 pads -->
+            </div>
+          </div>
+
+          <!-- 16-Step Chop Sequencer -->
+          <div class="card chopper-sequencer-card">
+            <div class="card-header">
+              <div class="seq-header-left">
+                <h3>16-Step Chop Sequencer</h3>
+                <span class="seq-hint">Left-click step to cycle slice. <strong>Alt/Option-Click</strong> or click <strong>🔗 Link</strong> to tie step to previous slice (sustain longer). Right-click to rest.</span>
+              </div>
+              <div class="seq-quick-patterns">
+                <button id="btnSeqStraight" class="btn-secondary btn-mini">1-8 Straight</button>
+                <button id="btnSeqFour" class="btn-secondary btn-mini">Bounce</button>
+                <button id="btnSeqClear" class="btn-secondary btn-mini">Clear Grid</button>
+              </div>
+            </div>
+
+            <div id="chopperSequencerGrid" class="chopper-sequencer-grid">
+              <!-- 16 step buttons with tie/link support -->
+            </div>
+
+            <!-- Export Bar -->
+            <div class="chopper-export-bar">
+              <div class="export-note-text">
+                📦 <strong>Export Package:</strong> Exports <code>master_selection_loop.wav</code> (your isolated loop crop), clean individual <code>slices/</code>, and sustained <code>sequence.mid</code> ready for Ableton / FL Studio.
+              </div>
+              <button id="btnChopperExport" class="btn-primary btn-export-pack">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="7 10 12 15 17 10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+                <span>Export Selection + Chops (.zip)</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- Global Floating Audio Player -->
+    <div id="audioPlayerBar" class="audio-player-bar hidden">
+      <div class="player-track-info">
+        <div class="player-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 18V5l12-2v13"></path>
+            <circle cx="6" cy="18" r="3"></circle>
+            <circle cx="18" cy="16" r="3"></circle>
+          </svg>
+        </div>
+        <div class="player-metadata">
+          <div id="playerTitle" class="track-name">Track Title</div>
+          <div class="player-sub-line">
+            <div id="playerArtist" class="artist-name">Artist</div>
+            <span id="playerBpmKey" class="player-bpm-key hidden"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="player-controls-center">
+        <div class="buttons-row">
+          <button id="btnPlayerPlay" class="btn-play-pause">
+            <svg id="playIcon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <polygon points="5 3 19 12 5 21 5 3"></polygon>
+            </svg>
+            <svg id="pauseIcon" class="hidden" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <rect x="6" y="4" width="4" height="16"></rect>
+              <rect x="14" y="4" width="4" height="16"></rect>
+            </svg>
+          </button>
+        </div>
+        <div class="progress-row">
+          <span id="playerCurrentTime" class="time-label">0:00</span>
+          <input type="range" id="playerSeek" min="0" max="100" value="0" />
+          <span id="playerTotalTime" class="time-label">0:00</span>
+        </div>
+      </div>
+
+      <div class="player-volume-group">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+          <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+        </svg>
+        <input type="range" id="playerVolume" min="0" max="1" step="0.05" value="0.9" />
+      </div>
+
+      <audio id="nativeAudioElement" preload="metadata"></audio>
+    </div>
+
+    <!-- Video Player Modal -->
+    <div id="videoModal" class="video-modal-backdrop hidden">
+      <div class="video-modal-card">
+        <div class="video-modal-header">
+          <div class="video-modal-title-group">
+            <span class="video-badge-pill">Video</span>
+            <h3 id="videoModalTitle">Video Title</h3>
+          </div>
+          <button type="button" id="btnCloseVideoModal" class="btn-icon-subtle" title="Close Video">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+        <div class="video-player-container">
+          <video id="nativeVideoElement" controls preload="metadata"></video>
+        </div>
+        <div class="video-modal-footer">
+          <div class="video-modal-meta">
+            <span id="videoModalMeta">MP4 Video</span>
+          </div>
+          <div class="video-modal-actions">
+            <a id="btnDownloadCurrentVideo" href="#" download class="btn-secondary" style="padding: 0.5rem 1rem;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              <span>Save File</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="chopper.js?v=1"></script>
+  <script src="app.js?v=27"></script>
+
+
+
+
+</body>
+</html>
