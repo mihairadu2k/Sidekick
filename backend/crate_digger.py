@@ -7,13 +7,15 @@ Specialized discovery system for finding rare, obscure, and high-potential sampl
 - Sampleability heuristic scoring (Obscurity, Length sweet spot, Channel provenance, Aesthetic tags)
 """
 
+from __future__ import annotations
+
 import json
 import time
 from pathlib import Path
 import random
 import re
 import urllib.parse
-from typing import List, Optional, Dict, Any, Set
+from typing import List, Optional, Dict, Any, Set, Tuple
 from pydantic import BaseModel
 import yt_dlp
 
