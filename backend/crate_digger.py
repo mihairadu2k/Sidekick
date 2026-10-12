@@ -19,7 +19,7 @@ from typing import List, Optional, Dict, Any, Set, Tuple
 from pydantic import BaseModel
 import yt_dlp
 
-from .downloader import parse_artist_title, format_duration, DOWNLOADS_DIR
+from .downloader import parse_artist_title, format_duration, DOWNLOADS_DIR, get_base_ydl_opts
 
 
 class CrateGenre(BaseModel):
@@ -997,12 +997,11 @@ def dig_crate_query(
     if vault_only and "vault" not in search_query.lower() and "kpm" not in search_query.lower():
         final_query = f"{search_query} vinyl rip 45rpm library"
 
-    ydl_opts = {
+    ydl_opts = get_base_ydl_opts()
+    ydl_opts.update({
         'extract_flat': True,
         'skip_download': True,
-        'quiet': True,
-        'no_warnings': True,
-    }
+    })
 
     # Ask for extra results so we can discard creator videos and keep pure musical audio
     fetch_count = min(45, max(limit * 3, 30))
@@ -1220,13 +1219,12 @@ def crawl_youtube_recommendation_graph(video_id: str, count: int = 25) -> List[D
         return []
         
     radio_url = f"https://www.youtube.com/watch?v={video_id}&list=RD{video_id}"
-    ydl_opts = {
+    ydl_opts = get_base_ydl_opts()
+    ydl_opts.update({
         'extract_flat': True,
         'skip_download': True,
-        'quiet': True,
-        'no_warnings': True,
         'playlist_items': f'1:{count}'
-    }
+    })
     
     entries = []
     try:
@@ -1263,7 +1261,8 @@ def dig_rabbit_hole(
     vid_match = re.search(r'(?:v=|\/|youtu\.be\/)([0-9A-Za-z_-]{11})', clean_query)
     if vid_match:
         original_video_id = vid_match.group(1)
-        ydl_opts = {'quiet': True, 'skip_download': True, 'extract_flat': True}
+        ydl_opts = get_base_ydl_opts()
+        ydl_opts.update({'extract_flat': True, 'skip_download': True})
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(clean_query, download=False)
@@ -1278,7 +1277,8 @@ def dig_rabbit_hole(
     # If text seed was given without video id, attempt to resolve seed video id for graph crawl
     if not original_video_id and clean_query:
         try:
-            ydl_opts_fast = {'quiet': True, 'skip_download': True, 'extract_flat': True}
+            ydl_opts_fast = get_base_ydl_opts()
+            ydl_opts_fast.update({'extract_flat': True, 'skip_download': True})
             with yt_dlp.YoutubeDL(ydl_opts_fast) as ydl:
                 quick_res = ydl.extract_info(f"ytsearch1:{clean_query} audio", download=False)
                 if quick_res and 'entries' in quick_res and quick_res['entries']:

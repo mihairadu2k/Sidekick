@@ -72,6 +72,16 @@ Sidekick is fully configured for deployment on [render.com](https://render.com) 
 
 The production `Dockerfile` automatically installs **FFmpeg** and **Node.js** alongside Python, ensuring seamless YouTube cipher solving and audio transcoding in the cloud.
 
+### 🍪 YouTube Bot Challenges & Cookies (Render.com)
+Datacenter cloud IPs (Render, AWS, GCP) are occasionally challenged by YouTube with *"Sign in to confirm you're not a bot"*. 
+
+Sidekick automatically employs Android, iOS, and TV InnerTube client fallback chains to bypass this. If a particular video strictly requires authentication:
+1. Export your YouTube cookies using the browser extension **"Get cookies.txt LOCALLY"** (Chrome / Firefox).
+2. In the **Render Dashboard**, go to your service:
+   - **Environment Variable**: Add `YOUTUBE_COOKIES` and paste the raw text of your `cookies.txt`.
+   - **Secret File**: Add a Secret File named `cookies.txt` and paste the contents.
+Sidekick will detect and load the cookies file automatically.
+
 ---
 
 ## 📁 Directory Structure

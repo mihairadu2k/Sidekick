@@ -64,19 +64,69 @@ if _node_path:
         os.environ["PATH"] = f"{_node_dir}:{os.environ.get('PATH', '')}"
 
 
+def find_cookie_file() -> Optional[str]:
+    """Finds or creates a cookie file from environment variables, Render secrets, or disk."""
+    # 1. Custom path via env var
+    custom_path = os.environ.get("COOKIE_FILE", "").strip()
+    if custom_path and Path(custom_path).is_file():
+        return custom_path
+
+    # 2. Raw cookie content passed via YOUTUBE_COOKIES env var (ideal for Render dashboard)
+    cookies_env = os.environ.get("YOUTUBE_COOKIES", "").strip()
+    if cookies_env:
+        try:
+            # Handle possible base64 encoding
+            if not cookies_env.startswith("#") and len(cookies_env) > 40:
+                try:
+                    import base64
+                    decoded = base64.b64decode(cookies_env).decode("utf-8")
+                    if "# Netscape" in decoded or "\t" in decoded:
+                        cookies_env = decoded
+                except Exception:
+                    pass
+            tmp_cookie = Path("/tmp/youtube_cookies.txt")
+            tmp_cookie.write_text(cookies_env, encoding="utf-8")
+            return str(tmp_cookie)
+        except Exception as e:
+            logger.warning(f"Failed to write YOUTUBE_COOKIES to /tmp: {e}")
+
+    # 3. Render Secret File mount
+    render_secret = Path("/etc/secrets/cookies.txt")
+    if render_secret.is_file():
+        return str(render_secret)
+
+    # 4. Local cookies.txt in project root or downloads
+    for local_cand in [PROJECT_ROOT / "cookies.txt", DOWNLOADS_DIR / "cookies.txt"]:
+        if local_cand.is_file():
+            return str(local_cand)
+
+    return None
+
+
 def get_base_ydl_opts() -> dict:
-    """Returns baseline yt-dlp options configured to defeat YouTube bot throttling and HTTP 403."""
+    """Returns baseline yt-dlp options configured to defeat YouTube bot throttling, HTTP 403, and datacenter IP blocks."""
     opts: Dict[str, Any] = {
         'quiet': True,
         'no_warnings': True,
         'remote_components': ['ejs:github'],
-        'user_agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['android', 'ios', 'tv', 'web'],
+            }
+        },
     }
     nb = find_node_executable()
     if nb:
         opts['js_runtimes'] = {'node': {}}
     if BIN_DIR.exists():
         opts['ffmpeg_location'] = str(BIN_DIR)
+
+    cookie_file = find_cookie_file()
+    if cookie_file:
+        opts['cookiefile'] = cookie_file
+        logger.info(f"Using cookies file for YouTube authentication: {cookie_file}")
+
     return opts
 
 
@@ -138,8 +188,26 @@ def extract_video_info(url: str) -> VideoInfoResponse:
         'skip_download': True,
     })
     
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(url, download=False)
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+    except Exception as first_err:
+        err_msg = str(first_err).lower()
+        if any(w in err_msg for w in ["403", "forbidden", "bot", "sign in"]):
+            logger.warning(f"Metadata challenge encountered for {url}: {err_msg[:80]}. Retrying with android client...")
+            fallback_opts = dict(ydl_opts)
+            fallback_opts['extractor_args'] = {'youtube': {'player_client': ['android', 'web']}}
+            try:
+                with yt_dlp.YoutubeDL(fallback_opts) as fydl:
+                    info = fydl.extract_info(url, download=False)
+            except Exception as second_err:
+                logger.warning(f"Fallback 1 failed: {second_err}. Retrying with ios client...")
+                fallback_opts2 = dict(ydl_opts)
+                fallback_opts2['extractor_args'] = {'youtube': {'player_client': ['ios', 'web']}}
+                with yt_dlp.YoutubeDL(fallback_opts2) as fydl2:
+                    info = fydl2.extract_info(url, download=False)
+        else:
+            raise first_err
         
     if not info:
         raise ValueError("Could not extract information from the provided URL.")
@@ -555,19 +623,26 @@ class DownloadManager:
                         return ydl.extract_info(url, download=True)
                 except Exception as first_err:
                     err_msg = str(first_err).lower()
-                    if "403" in err_msg or "forbidden" in err_msg:
-                        logger.warning(f"Download 403 Forbidden encountered for {url}. Retrying with mweb client fallback...")
+                    if any(w in err_msg for w in ["403", "forbidden", "bot", "sign in"]):
+                        logger.warning(f"Download challenge encountered for {url}: {err_msg[:80]}. Retrying with android client fallback...")
                         fallback_opts = dict(ydl_opts)
-                        fallback_opts['extractor_args'] = {'youtube': {'player_client': ['mweb', 'web']}}
+                        fallback_opts['extractor_args'] = {'youtube': {'player_client': ['android', 'web']}}
                         try:
                             with yt_dlp.YoutubeDL(fallback_opts) as fallback_ydl:
                                 return fallback_ydl.extract_info(url, download=True)
                         except Exception as second_err:
-                            logger.warning(f"Fallback 1 failed: {second_err}. Retrying with android client fallback...")
+                            logger.warning(f"Fallback 1 failed: {second_err}. Retrying with ios client fallback...")
                             fallback_opts2 = dict(ydl_opts)
-                            fallback_opts2['extractor_args'] = {'youtube': {'player_client': ['android', 'web']}}
-                            with yt_dlp.YoutubeDL(fallback_opts2) as fallback_ydl2:
-                                return fallback_ydl2.extract_info(url, download=True)
+                            fallback_opts2['extractor_args'] = {'youtube': {'player_client': ['ios', 'web']}}
+                            try:
+                                with yt_dlp.YoutubeDL(fallback_opts2) as fallback_ydl2:
+                                    return fallback_ydl2.extract_info(url, download=True)
+                            except Exception as third_err:
+                                logger.warning(f"Fallback 2 failed: {third_err}. Retrying with tv client fallback...")
+                                fallback_opts3 = dict(ydl_opts)
+                                fallback_opts3['extractor_args'] = {'youtube': {'player_client': ['tv', 'web']}}
+                                with yt_dlp.YoutubeDL(fallback_opts3) as fallback_ydl3:
+                                    return fallback_ydl3.extract_info(url, download=True)
                     raise first_err
 
             info = await asyncio.to_thread(run_yt_dlp)
