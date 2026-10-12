@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: yt2mp3-pro
+    runtime: docker
+    plan: free
+    region: frankfurt
+    autoDeploy: true
+    envVars:
+      - key: PORT
+        value: 10000
