@@ -165,6 +165,7 @@ def test_crate_dig_post_endpoint(monkeypatch):
     )
 
     monkeypatch.setattr(crate_digger, "dig_crate_query", lambda *args, **kwargs: [mock_track])
+    monkeypatch.setattr(crate_digger, "crawl_youtube_recommendation_graph", lambda *args, **kwargs: [])
 
     # Test genre dig
     res_genre = client.post("/api/crate/dig", json={"genre_id": "japanese_jazz", "limit": 6})
@@ -223,4 +224,130 @@ def test_crate_feedback_and_learning(monkeypatch, tmp_path):
     stats_data = stats_res.json()
     assert stats_data["disliked_tracks_count"] == 1
     assert stats_data["learned_keywords_count"] >= 1
+
+
+def test_harmonic_and_bpm_matching():
+    from backend.crate_digger import (
+        get_camelot_neighbors,
+        extract_musical_signals,
+        check_harmonic_fit,
+        calculate_sampleability
+    )
+
+    # 1. Camelot neighbor calculation
+    neighbors_8a = get_camelot_neighbors("8A")  # A Minor
+    assert neighbors_8a["exact"] == "8A"
+    assert neighbors_8a["relative"] == "8B"     # C Major
+    assert neighbors_8a["boost"] == "9A"        # E Minor
+    assert neighbors_8a["drop"] == "7A"         # D Minor
+
+    # Wrap-around check: 1A drop is 12A, 12A boost is 1A
+    neighbors_1a = get_camelot_neighbors("1A")
+    assert neighbors_1a["drop"] == "12A"
+    neighbors_12a = get_camelot_neighbors("12A")
+    assert neighbors_12a["boost"] == "1A"
+
+    # 2. Extraction from title
+    bpm, key = extract_musical_signals("KPM 1102 - Funky Stroll (95 BPM) in A Minor", "Library Archivist")
+    assert bpm == 95
+    assert key == "8A"
+
+    # 3. Harmonic fit scoring
+    bonus, tags, desc = check_harmonic_fit(candidate_bpm=94, candidate_key="8A", target_bpm=95.0, target_key="8A")
+    assert bonus >= 30
+    assert "Exact Key (8A)" in desc
+    assert any("Key Match" in t for t in tags)
+    assert any("Tempo Sync" in t for t in tags)
+
+    # 4. Integrated calculate_sampleability bonus
+    score_with_harmonic, tags_h = calculate_sampleability(
+        duration=180,
+        views=2500,
+        title="Rare Groove (95 BPM) in A Minor",
+        uploader="Vinyl Rip",
+        target_bpm=95.0,
+        target_key="8A"
+    )
+    score_without, _ = calculate_sampleability(
+        duration=180,
+        views=2500,
+        title="Rare Groove (95 BPM) in A Minor",
+        uploader="Vinyl Rip"
+    )
+    assert score_with_harmonic > score_without
+
+
+def test_archival_channels_and_label_matrices():
+    from backend.crate_digger import check_provenance, calculate_sampleability
+
+    # Known archival channel
+    bonus_ch, tags_ch, label_ch = check_provenance("Soul Funk 45", "Terminal Passage")
+    assert bonus_ch >= 15
+    assert "Vault Archivist" in tags_ch
+    assert "Terminal Passage" in label_ch
+
+    # Known library label (KPM)
+    bonus_lbl, tags_lbl, label_lbl = check_provenance("KPM 1000 Vintage Cue 1974", "Random Collector")
+    assert bonus_lbl >= 14
+    assert any("KPM" in t for t in tags_lbl)
+
+    # Japanese jazz holy grail label (Three Blind Mice)
+    bonus_tbm, tags_tbm, label_tbm = check_provenance("TBM 24 Vinyl Transfer", "Tokyo Records")
+    assert bonus_tbm >= 14
+    assert any("Three Blind Mice" in t for t in tags_tbm)
+
+    # Sampleability score boost for curated vault item
+    score_vault, tags_v = calculate_sampleability(
+        duration=200,
+        views=5000,
+        title="KPM 1140 Dramatic Theme",
+        uploader="My Analogue Journal"
+    )
+    score_regular, _ = calculate_sampleability(
+        duration=200,
+        views=5000,
+        title="Unknown Band Dramatic Theme",
+        uploader="User123"
+    )
+    assert score_vault > score_regular
+
+
+def test_youtube_recommendation_graph_rabbit_hole(monkeypatch):
+    from backend import crate_digger
+
+    mock_graph_entries = [
+        {
+            "id": "graph_item_1",
+            "title": "Janko Nilovic - Drug Song (1975) [Vinyl Rip]",
+            "uploader": "Library Music Themes",
+            "duration": 210,
+            "thumbnail": "https://example.com/thumb_graph.jpg",
+            "view_count": 3200
+        },
+        {
+            "id": "graph_item_2",
+            "title": "Piero Umiliani - Mah Na Mah Na (Rare 45rpm)",
+            "uploader": "Vinyl Archeology",
+            "duration": 180,
+            "thumbnail": "https://example.com/thumb_graph2.jpg",
+            "view_count": 8400
+        }
+    ]
+
+    monkeypatch.setattr(crate_digger, "crawl_youtube_recommendation_graph", lambda vid, count=25: mock_graph_entries)
+    monkeypatch.setattr(crate_digger, "dig_crate_query", lambda *args, **kwargs: [])
+
+    response = crate_digger.dig_rabbit_hole(
+        seed_input="https://www.youtube.com/watch?v=seed1234567",
+        limit=5,
+        target_bpm=92.0,
+        target_key="8A"
+    )
+
+    assert response.mode == "rabbit_hole"
+    assert {t.id for t in response.tracks} == {"graph_item_1", "graph_item_2"}
+    assert all(t.provenance is not None for t in response.tracks)
+    assert response.target_bpm == 92.0
+    assert response.target_key == "8A"
+
 

@@ -109,8 +109,9 @@ window.switchTab = function(tabName) {
     if (viewCrate) viewCrate.classList.remove('hidden');
     if (viewYoutube) viewYoutube.classList.add('hidden');
     if (viewChopper) viewChopper.classList.add('hidden');
-    // Initialize crate genres on first open
+    // Initialize crate genres and library seeds on first open
     loadCrateGenres();
+    loadCrateLibrarySeeds();
   } else if (tabName === 'chopper') {
     if (tabBtnChopper) tabBtnChopper.classList.add('active');
     if (tabBtnYoutube) tabBtnYoutube.classList.remove('active');
@@ -126,6 +127,11 @@ window.switchTab = function(tabName) {
     if (viewYoutube) viewYoutube.classList.remove('hidden');
     if (viewCrate) viewCrate.classList.add('hidden');
     if (viewChopper) viewChopper.classList.add('hidden');
+  }
+
+  // Update floating play / pause widget for chopper
+  if (window.updateChopperFloatingWidget) {
+    window.updateChopperFloatingWidget();
   }
 };
 
@@ -591,13 +597,21 @@ function renderSimilarTracks(tracks) {
     const encArtist = encodeURIComponent(track.artist || track.uploader || '');
     const thumb = track.thumbnail || 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect fill="%23222" width="100%" height="100%"/></svg>';
     const isFav = isTrackFavorite(track.id);
+    const isDownloaded = isTrackDownloaded(track.id, track.title);
 
     return `
       <div class="similar-track-card">
         <div class="similar-thumb-box">
           <img src="${escapeHtml(thumb)}" alt="${escapeHtml(track.title)}" loading="lazy" />
           <span class="similar-dur-pill">${track.duration_str}</span>
-          ${track.views_str ? `<span class="similar-views-pill">${track.views_str}</span>` : ''}
+          ${isDownloaded ? `
+          <span class="similar-downloaded-pill" title="Already in your library / sample stash">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span>Downloaded</span>
+          </span>
+          ` : (track.views_str ? `<span class="similar-views-pill">${track.views_str}</span>` : '')}
         </div>
         <div class="similar-card-body">
           <div>
@@ -605,13 +619,17 @@ function renderSimilarTracks(tracks) {
             <div class="similar-artist" title="${escapeHtml(track.artist || track.uploader)}">${escapeHtml(track.artist || track.uploader)}</div>
           </div>
           <div class="similar-card-actions">
-            <button type="button" class="btn-similar-download" onclick="startSimilarDownload('${encUrl}', '${encTitle}', '${encArtist}')" title="Download directly with current settings">
+            <button type="button" class="btn-similar-download ${isDownloaded ? 'is-downloaded' : ''}" onclick="startSimilarDownload('${encUrl}', '${encTitle}', '${encArtist}')" title="${isDownloaded ? 'Already downloaded (Click to re-download)' : 'Download directly with current settings'}">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                ${isDownloaded ? `
+                <polyline points="20 6 9 17 4 12"></polyline>
+                ` : `
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                 <polyline points="7 10 12 15 17 10"></polyline>
                 <line x1="12" y1="15" x2="12" y2="3"></line>
+                `}
               </svg>
-              <span>Download</span>
+              <span>${isDownloaded ? 'In Stash' : 'Download'}</span>
             </button>
             <button type="button" class="btn-similar-load" onclick="loadSimilarTrackByIndex(${idx})" title="Load into Preview & Ingest">
               <span>Load</span>
@@ -884,12 +902,88 @@ async function fetchLibrary() {
   try {
     const res = await fetch('/api/files');
     if (res.ok) {
-      downloadedFiles = await res.json();
-      renderLibrary();
+      const newFiles = await res.json();
+      const filesChanged = !downloadedFiles ||
+        downloadedFiles.length !== newFiles.length ||
+        JSON.stringify(newFiles.map(f => f.filename)) !== JSON.stringify(downloadedFiles.map(f => f.filename));
+
+      downloadedFiles = newFiles;
+      if (filesChanged) {
+        renderLibrary();
+      }
+      // Update downloaded status badges in place without re-rendering or jumping scroll
+      updateCrateDownloadedBadges();
+      updateSimilarDownloadedBadges();
     }
   } catch (err) {
     console.error('Failed to fetch library files', err);
   }
+}
+
+function updateCrateDownloadedBadges() {
+  if (!currentCrateTracks || currentCrateTracks.length === 0) return;
+  const cards = document.querySelectorAll('.crate-card');
+  cards.forEach(card => {
+    const idx = parseInt(card.getAttribute('data-track-index'), 10);
+    const track = currentCrateTracks[idx];
+    if (!track) return;
+    const isDownloaded = isTrackDownloaded(track.id, track.title);
+    card.classList.toggle('is-downloaded-card', isDownloaded);
+
+    const media = card.querySelector('.crate-card-media');
+    let pill = card.querySelector('.crate-downloaded-pill');
+    if (isDownloaded && !pill && media) {
+      const newPill = document.createElement('div');
+      newPill.className = 'crate-downloaded-pill';
+      newPill.title = 'Already in your library / sample stash';
+      newPill.innerHTML = `
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+        <span>Downloaded</span>
+      `;
+      media.appendChild(newPill);
+    } else if (!isDownloaded && pill) {
+      pill.remove();
+    }
+
+    const sampleBtn = card.querySelector('.btn-card-sample');
+    if (sampleBtn) {
+      sampleBtn.classList.toggle('is-downloaded', isDownloaded);
+      sampleBtn.title = isDownloaded ? 'Already downloaded (Click to re-download or convert)' : 'Download audio';
+      const span = sampleBtn.querySelector('span');
+      if (span) span.textContent = isDownloaded ? 'In Stash' : 'Download';
+      const svg = sampleBtn.querySelector('svg');
+      if (svg) {
+        svg.innerHTML = isDownloaded 
+          ? '<polyline points="20 6 9 17 4 12"></polyline>' 
+          : '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line>';
+      }
+    }
+  });
+}
+
+function updateSimilarDownloadedBadges() {
+  if (!window.currentSimilarTracks || window.currentSimilarTracks.length === 0) return;
+  const cards = document.querySelectorAll('.similar-track-card');
+  cards.forEach((card, idx) => {
+    const track = window.currentSimilarTracks[idx];
+    if (!track) return;
+    const isDownloaded = isTrackDownloaded(track.id, track.title);
+    const btn = card.querySelector('.btn-similar-download');
+    if (btn) {
+      btn.classList.toggle('is-downloaded', isDownloaded);
+      btn.title = isDownloaded ? 'Already downloaded (Click to re-download)' : 'Download directly with current settings';
+      const span = btn.querySelector('span');
+      if (span) span.textContent = isDownloaded ? 'In Stash' : 'Download';
+      const svg = btn.querySelector('svg');
+      if (svg) {
+        svg.innerHTML = isDownloaded 
+          ? '<polyline points="20 6 9 17 4 12"></polyline>' 
+          : '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line>';
+      }
+    }
+  });
 }
 
 function renderLibrary() {
@@ -911,15 +1005,19 @@ function renderLibrary() {
   }
 
   if (emptyLibrary) emptyLibrary.classList.add('hidden');
-  libraryList.innerHTML = filtered.map(f => {
+
+  // Store in global window for index lookup
+  window.currentLibraryFiles = filtered;
+
+  libraryList.innerHTML = filtered.map((f, idx) => {
     const isVid = !!f.is_video;
     const playBtnHtml = isVid
-      ? `<button class="btn-file-play video-play" onclick="playVideoFile('${encodeURIComponent(f.filename)}', '${escapeHtml(f.title).replace(/'/g, "\\'")}', '${f.format}', '${f.file_size_mb}')" title="Watch Video">
+      ? `<button class="btn-file-play video-play" onclick="window.playLibraryFileByIndex(${idx})" title="Watch Video">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
             <polygon points="5 3 19 12 5 21 5 3"></polygon>
           </svg>
         </button>`
-      : `<button class="btn-file-play" onclick="playFile('${encodeURIComponent(f.filename)}', '${escapeHtml(f.title).replace(/'/g, "\\'")}', '${escapeHtml(f.artist).replace(/'/g, "\\'")}', '${f.bpm || ''}', '${escapeHtml(f.key_display || '').replace(/'/g, "\\'")}')" title="Play Audio">
+      : `<button class="btn-file-play" onclick="window.playLibraryFileByIndex(${idx})" title="Play Audio">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
             <polygon points="5 3 19 12 5 21 5 3"></polygon>
           </svg>
@@ -952,7 +1050,7 @@ function renderLibrary() {
 
         <div class="file-actions">
           ${!isVid ? `
-          <button class="btn-icon-subtle btn-action-chop" onclick="window.loadTrackIntoChopper('${encodeURIComponent(f.filename)}', '${escapeHtml(f.title).replace(/'/g, "\\'")}', '${f.bpm || ''}')" title="Chop & Sketch Beat (MPC / Ableton Style)">
+          <button class="btn-icon-subtle btn-action-chop" onclick="window.chopLibraryFileByIndex(${idx})" title="Chop & Sketch Beat (MPC / Ableton Style)">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="6" cy="6" r="3"></circle>
               <circle cx="6" cy="18" r="3"></circle>
@@ -962,7 +1060,13 @@ function renderLibrary() {
             </svg>
           </button>
           ` : ''}
-          <button class="btn-icon-subtle" onclick="findSimilarForTrack('${encodeURIComponent(f.filename)}', '${escapeHtml(f.title).replace(/'/g, "\\'")}', '${escapeHtml(f.artist).replace(/'/g, "\\'")}')" title="Find Similar Songs">
+          <button class="btn-icon-subtle btn-action-harmonic" onclick="window.digHarmonicFromLibraryByIndex(${idx})" title="Dig Harmonic Cousins (Match BPM & Key in Crate)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polygon points="12 8 8 12 12 16 16 12 12 8"></polygon>
+            </svg>
+          </button>
+          <button class="btn-icon-subtle" onclick="window.findSimilarLibraryByIndex(${idx})" title="Find Similar Songs">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
             </svg>
@@ -974,7 +1078,7 @@ function renderLibrary() {
               <line x1="12" y1="15" x2="12" y2="3"></line>
             </svg>
           </a>
-          <button class="btn-icon-subtle" onclick="deleteFile('${encodeURIComponent(f.filename)}')" title="Delete">
+          <button class="btn-icon-subtle" onclick="window.deleteLibraryByIndex(${idx})" title="Delete">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="3 6 5 6 21 6"></polyline>
               <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -985,6 +1089,74 @@ function renderLibrary() {
     `;
   }).join('');
 }
+
+window.playLibraryFileByIndex = function(idx) {
+  if (!window.currentLibraryFiles || !window.currentLibraryFiles[idx]) return;
+  const f = window.currentLibraryFiles[idx];
+  if (f.is_video) {
+    playVideoFile(f.filename, f.title, f.format, f.file_size_mb);
+  } else {
+    playFile(f.filename, f.title, f.artist, f.bpm || '', f.key_display || '');
+  }
+};
+
+window.chopLibraryFileByIndex = function(idx) {
+  if (!window.currentLibraryFiles || !window.currentLibraryFiles[idx]) return;
+  const f = window.currentLibraryFiles[idx];
+  if (window.loadTrackIntoChopper) {
+    window.loadTrackIntoChopper(f.filename, f.title, f.bpm || '');
+  }
+};
+
+window.findSimilarLibraryByIndex = function(idx) {
+  if (!window.currentLibraryFiles || !window.currentLibraryFiles[idx]) return;
+  const f = window.currentLibraryFiles[idx];
+  findSimilarForTrack(f.filename, f.title, f.artist);
+};
+
+window.digHarmonicFromLibraryByIndex = async function(idx) {
+  if (!window.currentLibraryFiles || !window.currentLibraryFiles[idx]) return;
+  const f = window.currentLibraryFiles[idx];
+
+  // 1. Switch tab to Crate Digging
+  if (typeof switchTab === 'function') {
+    switchTab('crate');
+  }
+
+  // 2. Ensure library seeds are loaded
+  await loadCrateLibrarySeeds();
+
+  // 3. Set library seed dropdown and target values
+  const seedSelect = document.getElementById('crateLibrarySeedSelect');
+  const bpmInput = document.getElementById('crateTargetBpm');
+  const keySelect = document.getElementById('crateTargetKey');
+  const rabbitInput = document.getElementById('crateRabbitHoleInput');
+
+  if (seedSelect) seedSelect.value = f.filename;
+  if (bpmInput) bpmInput.value = f.bpm ? Math.round(f.bpm) : '';
+  if (keySelect && f.camelot) keySelect.value = f.camelot;
+
+  updateHarmonicFilterUI();
+
+  // 4. Populate Rabbit Hole input with track artist/title or URL
+  if (rabbitInput) {
+    const vidIdMatch = f.filename && f.filename.match(/\[([0-9A-Za-z_-]{11})\]/);
+    if (vidIdMatch) {
+      rabbitInput.value = `https://www.youtube.com/watch?v=${vidIdMatch[1]}`;
+    } else {
+      rabbitInput.value = `${f.artist || ''} ${f.title || ''}`.trim();
+    }
+  }
+
+  // 5. Trigger rabbit hole search for algorithmic & harmonic cousins
+  triggerRabbitHoleDig();
+};
+
+window.deleteLibraryByIndex = function(idx) {
+  if (!window.currentLibraryFiles || !window.currentLibraryFiles[idx]) return;
+  const f = window.currentLibraryFiles[idx];
+  deleteFile(f.filename);
+};
 
 window.findSimilarForTrack = function(encFilename, title, artist) {
   const filename = decodeURIComponent(encFilename);
@@ -1046,7 +1218,10 @@ window.playFile = function(encodedFilename, title, artist, bpm, keyDisplay) {
       }
     }
 
-    if (audioPlayerBar) audioPlayerBar.classList.remove('hidden');
+    if (audioPlayerBar) {
+      audioPlayerBar.classList.remove('hidden');
+      document.body.classList.add('audio-bar-active');
+    }
 
     nativeAudio.play().then(() => {
       if (playIcon) playIcon.classList.add('hidden');
@@ -1077,7 +1252,10 @@ window.deleteFile = async function(encodedFilename) {
     if (res.ok) {
       if (currentPlayingFile === filename && nativeAudio) {
         nativeAudio.pause();
-        if (audioPlayerBar) audioPlayerBar.classList.add('hidden');
+        if (audioPlayerBar) {
+          audioPlayerBar.classList.add('hidden');
+          document.body.classList.remove('audio-bar-active');
+        }
       }
       fetchLibrary();
     }
@@ -1112,6 +1290,73 @@ let selectedCrateGenreId = null;
 let currentAuditionTrack = null;
 let auditionAudioElement = new Audio();
 let crateFavorites = [];
+let isVaultOnlyActive = false;
+let crateLibrarySeeds = [];
+let crateLibrarySeedsLoaded = false;
+
+function getHarmonicParams() {
+  const bpmInput = document.getElementById('crateTargetBpm');
+  const keySelect = document.getElementById('crateTargetKey');
+  const seedSelect = document.getElementById('crateLibrarySeedSelect');
+
+  const target_bpm = bpmInput && bpmInput.value ? parseFloat(bpmInput.value) : undefined;
+  const target_key = keySelect && keySelect.value ? keySelect.value : undefined;
+  const seed_library_file = seedSelect && seedSelect.value ? seedSelect.value : undefined;
+  const vault_only = isVaultOnlyActive ? true : false;
+
+  return { target_bpm, target_key, seed_library_file, vault_only };
+}
+
+function updateHarmonicFilterUI() {
+  const { target_bpm, target_key, seed_library_file, vault_only } = getHarmonicParams();
+  const resetBtn = document.getElementById('btnResetHarmonicFilters');
+  const hasFilter = !!(target_bpm || target_key || seed_library_file || vault_only);
+  if (resetBtn) {
+    resetBtn.classList.toggle('hidden', !hasFilter);
+  }
+}
+
+function resetHarmonicFilters() {
+  const bpmInput = document.getElementById('crateTargetBpm');
+  const keySelect = document.getElementById('crateTargetKey');
+  const seedSelect = document.getElementById('crateLibrarySeedSelect');
+  const vaultBtn = document.getElementById('btnToggleVaultOnly');
+
+  if (bpmInput) bpmInput.value = '';
+  if (keySelect) keySelect.value = '';
+  if (seedSelect) seedSelect.value = '';
+  isVaultOnlyActive = false;
+  if (vaultBtn) vaultBtn.classList.remove('active');
+
+  updateHarmonicFilterUI();
+}
+
+async function loadCrateLibrarySeeds() {
+  const seedSelect = document.getElementById('crateLibrarySeedSelect');
+  if (!seedSelect) return;
+
+  try {
+    const res = await fetch('/api/crate/library-seeds');
+    if (!res.ok) return;
+    crateLibrarySeeds = await res.json();
+    crateLibrarySeedsLoaded = true;
+
+    const currentVal = seedSelect.value;
+    seedSelect.innerHTML = '<option value="">None (Custom / Any)</option>' +
+      crateLibrarySeeds.map(s => {
+        const parts = [];
+        if (s.bpm) parts.push(`${Math.round(s.bpm)} BPM`);
+        if (s.camelot) parts.push(s.camelot);
+        const metaStr = parts.length > 0 ? ` (${parts.join(' • ')})` : '';
+        const label = `${s.title || s.filename}${metaStr}`;
+        return `<option value="${escapeHtml(s.filename)}">${escapeHtml(label)}</option>`;
+      }).join('');
+
+    if (currentVal) seedSelect.value = currentVal;
+  } catch (err) {
+    console.warn('Could not load crate library seeds:', err);
+  }
+}
 
 // Load favorites from localStorage
 try {
@@ -1130,6 +1375,31 @@ function saveCrateFavorites() {
 
 function isTrackFavorite(trackId) {
   return crateFavorites.some(t => t.id === trackId);
+}
+
+function isTrackDownloaded(trackId, title) {
+  if (!downloadedFiles || downloadedFiles.length === 0) return false;
+  if (!trackId && !title) return false;
+
+  const normalizedTitle = title ? title.toLowerCase().replace(/[^a-z0-9]/g, '') : '';
+
+  return downloadedFiles.some(f => {
+    // 1. Direct match on YouTube video ID in filename pattern [VIDEO_ID]
+    if (trackId && f.filename) {
+      if (f.filename.includes(`[${trackId}]`)) return true;
+    }
+    // 2. Direct match on f.id
+    if (trackId && f.id === trackId) return true;
+
+    // 3. Match by normalized title if title is reasonably specific
+    if (normalizedTitle && normalizedTitle.length >= 6 && f.title) {
+      const fNorm = f.title.toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (fNorm && (fNorm.includes(normalizedTitle) || normalizedTitle.includes(fNorm))) {
+        return true;
+      }
+    }
+    return false;
+  });
 }
 
 function toggleFavoriteTrack(track) {
@@ -1241,6 +1511,62 @@ function setupCrateEventListeners() {
     });
   }
 
+  // Harmonic Toolbar Listeners
+  const crateLibrarySeedSelect = document.getElementById('crateLibrarySeedSelect');
+  const crateTargetBpm = document.getElementById('crateTargetBpm');
+  const crateTargetKey = document.getElementById('crateTargetKey');
+  const btnToggleVaultOnly = document.getElementById('btnToggleVaultOnly');
+  const btnResetHarmonicFilters = document.getElementById('btnResetHarmonicFilters');
+
+  if (crateLibrarySeedSelect) {
+    crateLibrarySeedSelect.addEventListener('change', () => {
+      const selectedFilename = crateLibrarySeedSelect.value;
+      if (selectedFilename && crateLibrarySeeds) {
+        const seed = crateLibrarySeeds.find(s => s.filename === selectedFilename);
+        if (seed) {
+          if (seed.bpm && crateTargetBpm) crateTargetBpm.value = Math.round(seed.bpm);
+          if (seed.camelot && crateTargetKey) crateTargetKey.value = seed.camelot;
+        }
+      }
+      updateHarmonicFilterUI();
+    });
+  }
+
+  if (crateTargetBpm) {
+    crateTargetBpm.addEventListener('input', updateHarmonicFilterUI);
+    crateTargetBpm.addEventListener('change', updateHarmonicFilterUI);
+  }
+
+  if (crateTargetKey) {
+    crateTargetKey.addEventListener('change', updateHarmonicFilterUI);
+  }
+
+  if (btnToggleVaultOnly) {
+    btnToggleVaultOnly.addEventListener('click', () => {
+      isVaultOnlyActive = !isVaultOnlyActive;
+      btnToggleVaultOnly.classList.toggle('active', isVaultOnlyActive);
+      updateHarmonicFilterUI();
+
+      // If a genre is currently selected, re-dig with updated vault filter
+      if (selectedCrateGenreId) {
+        const activeGenreBtn = document.querySelector('.genre-pill-btn.active');
+        const label = activeGenreBtn ? activeGenreBtn.innerText : selectedCrateGenreId;
+        digGenreCrate(selectedCrateGenreId, label);
+      }
+    });
+  }
+
+  if (btnResetHarmonicFilters) {
+    btnResetHarmonicFilters.addEventListener('click', () => {
+      resetHarmonicFilters();
+      if (selectedCrateGenreId) {
+        const activeGenreBtn = document.querySelector('.genre-pill-btn.active');
+        const label = activeGenreBtn ? activeGenreBtn.innerText : selectedCrateGenreId;
+        digGenreCrate(selectedCrateGenreId, label);
+      }
+    });
+  }
+
   const btnClearFavorites = document.getElementById('btnClearFavorites');
   if (btnClearFavorites) {
     btnClearFavorites.addEventListener('click', () => {
@@ -1278,8 +1604,8 @@ function setupCrateEventListeners() {
   if (btnModalSampleNow) {
     btnModalSampleNow.addEventListener('click', () => {
       if (currentAuditionTrack) {
-        closeCrateYtModal();
-        sampleCrateTrack(currentAuditionTrack);
+        const trackToSample = currentAuditionTrack;
+        sampleCrateTrack(trackToSample);
       }
     });
   }
@@ -1400,7 +1726,15 @@ async function loadCrateGenres() {
 
 async function digGenreCrate(genreId, label) {
   const eraLabel = selectedCrateEra !== 'any' ? ` [${selectedCrateEra.toUpperCase()}]` : '';
-  setCrateLoading(true, `Searching ${label.trim()}${eraLabel}...`);
+  const { target_bpm, target_key, seed_library_file, vault_only } = getHarmonicParams();
+  let statusNote = `Searching ${label.trim()}${eraLabel}`;
+  if (target_bpm || target_key) {
+    statusNote += ` (${target_bpm ? target_bpm + ' BPM' : ''}${target_bpm && target_key ? ' • ' : ''}${target_key || ''})`;
+  }
+  if (vault_only) statusNote += ' [Vaults Only]';
+  statusNote += '...';
+
+  setCrateLoading(true, statusNote);
   try {
     const res = await fetch('/api/crate/dig', {
       method: 'POST',
@@ -1409,7 +1743,11 @@ async function digGenreCrate(genreId, label) {
         genre_id: genreId,
         era: selectedCrateEra,
         limit: 12,
-        obscurity_level: 'deep'
+        obscurity_level: 'deep',
+        target_bpm,
+        target_key,
+        seed_library_file,
+        vault_only
       })
     });
     if (!res.ok) {
@@ -1427,9 +1765,22 @@ async function digGenreCrate(genreId, label) {
 
 async function triggerSurpriseMeDig() {
   const eraLabel = selectedCrateEra !== 'any' ? ` [${selectedCrateEra.toUpperCase()}]` : '';
-  setCrateLoading(true, `Finding a random record${eraLabel}...`);
+  const { target_bpm, target_key, seed_library_file, vault_only } = getHarmonicParams();
+  let statusNote = `Finding a random record${eraLabel}`;
+  if (target_bpm || target_key) {
+    statusNote += ` (${target_bpm ? target_bpm + ' BPM' : ''}${target_bpm && target_key ? ' • ' : ''}${target_key || ''})`;
+  }
+  if (vault_only) statusNote += ' [Vaults Only]';
+  statusNote += '...';
+
+  setCrateLoading(true, statusNote);
   try {
-    const url = `/api/crate/surprise?era=${encodeURIComponent(selectedCrateEra)}`;
+    const params = new URLSearchParams({ era: selectedCrateEra });
+    if (target_bpm) params.append('target_bpm', target_bpm);
+    if (target_key) params.append('target_key', target_key);
+    if (vault_only) params.append('vault_only', 'true');
+
+    const url = `/api/crate/surprise?${params.toString()}`;
     const res = await fetch(url);
     if (!res.ok) throw new Error('Search failed');
     const data = await res.json();
@@ -1451,7 +1802,15 @@ async function triggerRabbitHoleDig() {
   }
 
   const eraLabel = selectedCrateEra !== 'any' ? ` [${selectedCrateEra.toUpperCase()}]` : '';
-  setCrateLoading(true, `Searching tracks related to "${val.slice(0, 30)}"${eraLabel}...`);
+  const { target_bpm, target_key, seed_library_file, vault_only } = getHarmonicParams();
+  let statusNote = `Searching tracks related to "${val.slice(0, 30)}"${eraLabel}`;
+  if (target_bpm || target_key) {
+    statusNote += ` (${target_bpm ? target_bpm + ' BPM' : ''}${target_bpm && target_key ? ' • ' : ''}${target_key || ''})`;
+  }
+  if (vault_only) statusNote += ' [Vaults Only]';
+  statusNote += '...';
+
+  setCrateLoading(true, statusNote);
   try {
     const res = await fetch('/api/crate/dig', {
       method: 'POST',
@@ -1459,7 +1818,11 @@ async function triggerRabbitHoleDig() {
       body: JSON.stringify({
         seed_query_or_url: val,
         era: selectedCrateEra,
-        limit: 12
+        limit: 12,
+        target_bpm,
+        target_key,
+        seed_library_file,
+        vault_only
       })
     });
     if (!res.ok) {
@@ -1484,7 +1847,10 @@ function setCrateLoading(loading, message = 'Searching...') {
     if (loading) {
       loader.classList.remove('hidden');
       if (text) text.textContent = message;
-      if (deck) deck.classList.add('hidden');
+      // Only hide deck if there are no existing results so page height doesn't collapse
+      if (deck && (!currentCrateTracks || currentCrateTracks.length === 0)) {
+        deck.classList.add('hidden');
+      }
     } else {
       loader.classList.add('hidden');
     }
@@ -1517,14 +1883,30 @@ function renderCrateResults(data) {
     const tagsHtml = (t.sample_tags || []).map(tag => 
       `<span class="crate-tag">${escapeHtml(tag)}</span>`
     ).join('');
+    const isDownloaded = isTrackDownloaded(t.id, t.title);
+
+    const harmonicBadgeHtml = t.harmonic_match 
+      ? `<span class="crate-badge-harmonic" title="Harmonic Sync Match">⚡ ${escapeHtml(t.harmonic_match)}</span>` 
+      : '';
+    const provenanceBadgeHtml = t.provenance 
+      ? `<span class="crate-badge-vault" title="Archival Provenance">🏛️ ${escapeHtml(t.provenance)}</span>` 
+      : '';
 
     return `
-      <div class="crate-card" data-track-index="${idx}">
+      <div class="crate-card ${isDownloaded ? 'is-downloaded-card' : ''}" data-track-index="${idx}">
         <div class="crate-card-media">
           <img class="crate-card-thumb" src="${escapeHtml(t.thumbnail)}" alt="${escapeHtml(t.title)}" loading="lazy" />
           <div class="crate-score-badge">
             <span>Score: ${t.sampleability_score}</span>
           </div>
+          ${isDownloaded ? `
+          <div class="crate-downloaded-pill" title="Already in your library / sample stash">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span>Downloaded</span>
+          </div>
+          ` : ''}
           <span class="crate-card-duration">${escapeHtml(t.duration_str)}</span>
         </div>
 
@@ -1533,6 +1915,8 @@ function renderCrateResults(data) {
           <div class="crate-card-uploader">${escapeHtml(t.uploader)} • ${escapeHtml(t.views_str || '')}</div>
           
           <div class="crate-card-tags">
+            ${harmonicBadgeHtml}
+            ${provenanceBadgeHtml}
             ${tagsHtml}
           </div>
 
@@ -1543,19 +1927,23 @@ function renderCrateResults(data) {
               </svg>
               <span>Audition</span>
             </button>
-            <button class="btn-card-sample" onclick="sampleCrateTrackByIndex(${idx})" title="Download audio">
+            <button class="btn-card-sample ${isDownloaded ? 'is-downloaded' : ''}" onclick="sampleCrateTrackByIndex(${idx})" title="${isDownloaded ? 'Already downloaded (Click to re-download or convert)' : 'Download audio'}">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                ${isDownloaded ? `
+                <polyline points="20 6 9 17 4 12"></polyline>
+                ` : `
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                 <polyline points="7 10 12 15 17 10"></polyline>
                 <line x1="12" y1="15" x2="12" y2="3"></line>
+                `}
               </svg>
-              <span>Download</span>
+              <span>${isDownloaded ? 'In Stash' : 'Download'}</span>
             </button>
             <button class="btn-card-fav ${isTrackFavorite(t.id) ? 'is-favorite' : ''}" data-track-id="${escapeHtml(t.id)}" onclick="toggleFavoriteByIndex(${idx})" title="${isTrackFavorite(t.id) ? 'Remove from favorites' : 'Add to favorites'}">
               ${isTrackFavorite(t.id) ? '❤️' : '🤍'}
             </button>
-            <button class="btn-card-hop" onclick="hopFromTrackByIndex(${idx})" title="Find similar tracks">
-              🔍
+            <button class="btn-card-hop" onclick="hopFromTrackByIndex(${idx})" title="Find similar tracks in Rabbit Hole">
+              🐇
             </button>
             <button class="btn-card-dislike" onclick="openFeedbackModalForTrackByIndex(${idx})" title="Not suitable? Hide from results">
               ✕
@@ -1567,7 +1955,6 @@ function renderCrateResults(data) {
   }).join('');
 
   deck.classList.remove('hidden');
-  deck.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 window.toggleFavoriteByIndex = function(idx) {
@@ -1609,6 +1996,11 @@ window.auditionCrateTrack = function(track) {
 
   if (modal) modal.classList.remove('hidden');
 
+  const btnModalOpenYt = document.getElementById('btnModalOpenYt');
+  if (btnModalOpenYt) {
+    btnModalOpenYt.href = track.url;
+  }
+
   // Update modal favorite heart state
   const modalFavIcon = document.getElementById('modalFavIcon');
   if (modalFavIcon) {
@@ -1628,6 +2020,11 @@ window.auditionCrateTrack = function(track) {
 };
 
 window.sampleCrateTrack = async function(track, autoStart = true) {
+  const targetTrack = track || currentAuditionTrack;
+  if (!targetTrack) {
+    console.warn('sampleCrateTrack called without a valid track');
+    return;
+  }
   closeCrateYtModal();
   
   // 1. Switch to Sample Ingest tab
@@ -1637,24 +2034,24 @@ window.sampleCrateTrack = async function(track, autoStart = true) {
 
   // 2. Pre-fill URL and tags
   if (youtubeUrlInput) {
-    youtubeUrlInput.value = track.url;
+    youtubeUrlInput.value = targetTrack.url;
   }
   if (customTitleInput) {
-    customTitleInput.value = track.title || '';
+    customTitleInput.value = targetTrack.title || '';
   }
   if (customArtistInput) {
-    customArtistInput.value = track.artist || track.uploader || '';
+    customArtistInput.value = targetTrack.artist || targetTrack.uploader || '';
   }
 
   // 3. Immediately construct and render preview card
   currentVideoInfo = {
-    id: track.id,
-    title: track.title,
-    artist: track.artist || track.uploader,
-    uploader: track.uploader || '',
-    duration: track.duration,
-    duration_str: track.duration_str,
-    thumbnail: track.thumbnail,
+    id: targetTrack.id,
+    title: targetTrack.title,
+    artist: targetTrack.artist || targetTrack.uploader,
+    uploader: targetTrack.uploader || '',
+    duration: targetTrack.duration,
+    duration_str: targetTrack.duration_str,
+    thumbnail: targetTrack.thumbnail,
     is_playlist: false
   };
   renderPreview(currentVideoInfo);
@@ -1665,15 +2062,15 @@ window.sampleCrateTrack = async function(track, autoStart = true) {
     const quality = audioQualitySelect ? audioQualitySelect.value : '320k';
     const embed_thumbnail = embedCoverCheck ? embedCoverCheck.checked : true;
     const embed_metadata = embedTagsCheck ? embedTagsCheck.checked : true;
-    const custom_title = track.title;
-    const custom_artist = track.artist || track.uploader;
+    const custom_title = targetTrack.title;
+    const custom_artist = targetTrack.artist || targetTrack.uploader;
 
     try {
       const res = await fetch('/api/download', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          url: track.url,
+          url: targetTrack.url,
           quality,
           custom_title,
           custom_artist,

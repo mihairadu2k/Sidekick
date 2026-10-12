@@ -58,7 +58,7 @@ from .chopper import ChopperExportRequest
 if BIN_DIR.exists():
     os.environ["PATH"] = f"{BIN_DIR}:{os.environ.get('PATH', '')}"
 
-app = FastAPI(title="The Producer Sidekick", version="1.0.0", description="Every music hero needs a Sidekick")
+app = FastAPI(title="The Producer Sidekick", version="1.0.0", description="Audio downloader, vintage record search & sample slicer")
 
 # Enable CORS for local dev
 app.add_middleware(
@@ -531,9 +531,9 @@ async def get_crate_eras():
 async def dig_crate(req: CrateDigRequest):
     """
     Primary endpoint for digging tracks to sample:
-    - Genre browsing with optional era filter
+    - Genre browsing with optional era and harmonic filter
     - 'Surprise Me' vault randomizer
-    - Seed rabbit hole crawler
+    - Seed rabbit hole crawler (with recommendation graph traversal)
     """
     loop = asyncio.get_running_loop()
     limit = req.limit or 12
@@ -543,15 +543,42 @@ async def dig_crate(req: CrateDigRequest):
     try:
         if req.seed_query_or_url:
             result = await loop.run_in_executor(
-                None, dig_rabbit_hole, req.seed_query_or_url, era, limit
+                None,
+                lambda: dig_rabbit_hole(
+                    req.seed_query_or_url,
+                    era,
+                    limit,
+                    target_bpm=req.target_bpm,
+                    target_key=req.target_key,
+                    seed_library_file=req.seed_library_file,
+                    vault_only=bool(req.vault_only)
+                )
             )
         elif req.genre_id:
             result = await loop.run_in_executor(
-                None, dig_by_genre, req.genre_id, era, limit, obscurity
+                None,
+                lambda: dig_by_genre(
+                    req.genre_id,
+                    era,
+                    limit,
+                    obscurity,
+                    target_bpm=req.target_bpm,
+                    target_key=req.target_key,
+                    seed_library_file=req.seed_library_file,
+                    vault_only=bool(req.vault_only)
+                )
             )
         else:
             result = await loop.run_in_executor(
-                None, dig_surprise_me, era, limit
+                None,
+                lambda: dig_surprise_me(
+                    era,
+                    limit,
+                    target_bpm=req.target_bpm,
+                    target_key=req.target_key,
+                    seed_library_file=req.seed_library_file,
+                    vault_only=bool(req.vault_only)
+                )
             )
         return result
     except Exception as e:
@@ -559,13 +586,55 @@ async def dig_crate(req: CrateDigRequest):
 
 
 @app.get("/api/crate/surprise")
-async def surprise_crate(era: Optional[str] = Query("any")):
-    """Quick GET endpoint for surprise me crate dig with optional era query."""
+async def surprise_crate(
+    era: Optional[str] = Query("any"),
+    target_bpm: Optional[float] = Query(None),
+    target_key: Optional[str] = Query(None),
+    vault_only: Optional[bool] = Query(False)
+):
+    """Quick GET endpoint for surprise me crate dig with optional era and harmonic query."""
     loop = asyncio.get_running_loop()
     try:
-        return await loop.run_in_executor(None, dig_surprise_me, era, 12)
+        return await loop.run_in_executor(
+            None,
+            lambda: dig_surprise_me(
+                era,
+                12,
+                target_bpm=target_bpm,
+                target_key=target_key,
+                vault_only=bool(vault_only)
+            )
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Surprise dig error: {str(e)}")
+
+
+@app.get("/api/crate/library-seeds")
+async def get_crate_library_seeds():
+    """
+    Returns downloaded tracks from the library with their detected BPM & Camelot Key
+    so producers can instantly anchor their digging session to an existing track.
+    """
+    valid_exts = {".mp3", ".flac", ".wav", ".m4a", ".aac", ".ogg"}
+    seeds = []
+    try:
+        for p in sorted(DOWNLOADS_DIR.glob("*.*"), key=lambda f: f.stat().st_mtime, reverse=True):
+            if p.suffix.lower() in valid_exts and p.is_file():
+                stat = p.stat()
+                meta = get_file_metadata(p)
+                dsp = get_cached_audio_analysis(p, stat)
+                seeds.append({
+                    "filename": p.name,
+                    "title": meta["title"],
+                    "artist": meta["artist"],
+                    "bpm": dsp.get("bpm"),
+                    "key": dsp.get("key"),
+                    "camelot": dsp.get("camelot"),
+                    "key_display": dsp.get("key_display")
+                })
+    except Exception as e:
+        pass
+    return seeds
 
 
 @app.post("/api/crate/feedback", response_model=CrateFeedbackResponse)

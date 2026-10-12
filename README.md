@@ -1,4 +1,4 @@
-# 🎛️ The Producer Sidekick — Every music hero needs a Sidekick
+# 🎛️ The Producer Sidekick
 
 A lightweight local studio companion built for music producers. Features high-fidelity audio downloading up to 320 kbps CBR and lossless FLAC/WAV with clean tags, **Crate Digging** (vintage vinyl and obscure sample discovery on YouTube), and an onboard **Sample Slicer**.
 
@@ -7,6 +7,10 @@ A lightweight local studio companion built for music producers. Features high-fi
 ## 🚀 Features
 
 - **Studio-Grade MP3 (320 kbps CBR)**: Converts YouTube audio streams using `yt-dlp` and `ffmpeg` to 320 kbps MP3, 256 kbps, 192 kbps, or lossless FLAC/WAV.
+- **Harmonic & BPM Alignment (Crate Digging)**: Match incoming vinyl finds to your project's tempo & Camelot key (1A–12A minor, 1B–12B major). Allows 1-click discovery of harmonic cousins directly from any downloaded library track.
+- **Curated Archival Channels & Label Matrices**: Whitelist verified vintage vinyl archivists (Terminal Passage, My Analogue Journal, Rare Groove Archive) and holy grail library matrices (KPM, Bruton, De Wolfe, Three Blind Mice, Melodiya).
+- **Algorithmic Rabbit Hole Crawler**: Taps YouTube's radio mix graph (`list=RD{id}`) to crawl obscure related tracks and rare sample companion records.
+- **Sample Slicer**: MPC / Ableton Simpler-style waveform slicer with transient chop markers, gate control, 909/808 drum loops, MIDI export, and sliced WAV package exporter.
 - **Full HD & 4K Video Downloads (MP4 / MKV)**: Download complete YouTube videos up to 4K / 1080p / 720p with synchronized audio streams muxed via FFmpeg.
 - **Embedded Metadata & Cover Art**: Automatically embeds Title, Artist, Album, Year, and high-resolution thumbnail directly into audio and video tags.
 - **Built-in In-Browser Video Player**: Watch downloaded MP4 videos directly within the web app with a responsive modal player.

@@ -72,3 +72,16 @@ def test_tied_steps_midi_duration():
     assert len(note_offs) == 1
     # 3 steps = 3 * 120 ticks = 360 ticks - 10 = 350 ticks
     assert note_offs[0].time == 350
+
+def test_extended_sequence_midi_export():
+    slices = [
+        SliceItem(index=1, start=0.0, end=0.5, note=36),
+        SliceItem(index=2, start=0.5, end=1.0, note=37),
+    ]
+    # 64-step sequence (4 bars of 16 steps)
+    sequence = ([0, None, 1, None] + [None] * 12) * 4
+    assert len(sequence) == 64
+    midi_bytes = generate_midi_file(bpm=128.0, slices=slices, sequence=sequence, pattern_bars=4)
+    mid = mido.MidiFile(file=io.BytesIO(midi_bytes))
+    note_ons = [msg for msg in mid.tracks[0] if msg.type == 'note_on']
+    assert len(note_ons) == 8
