@@ -73,6 +73,15 @@
         </svg>
         <span>Sample Slicer</span>
       </button>
+
+      <button id="tabBtnReference" class="nav-tab">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="9"></circle>
+          <path d="M10 8l6 4-6 4V8z"></path>
+          <path d="M3 12h3M18 12h3"></path>
+        </svg>
+        <span>Reference & Breaks</span>
+      </button>
     </nav>
 
     <!-- Main Content Grid -->
@@ -968,7 +977,297 @@
                 <!-- Dynamically loaded list of files -->
               </div>
             </div>
+      <!-- TAB 4: REFERENCE & DRUM BREAK ANALYZER VIEW -->
+      <div id="viewReference" class="tab-view hidden">
+        <!-- Top Toolbar / Track Ingestion -->
+        <div class="ref-toolbar-card card">
+          <div class="ref-toolbar-left">
+            <div class="ref-title-group">
+              <h2>Reference & Drum Break Analyzer</h2>
+              <span id="refEngineBadge" class="status-pill ready dsp">Local DSP Engine</span>
+            </div>
+            <p class="ref-subtitle">Deconstruct groove pocket, 16-step drum rhythms, arrangement sections, and frequency/stereo mix architecture.</p>
           </div>
+
+          <div class="ref-toolbar-actions">
+            <!-- Library track picker -->
+            <div class="ref-picker-group">
+              <select id="refTrackSelect" class="ref-select">
+                <option value="">-- Choose a downloaded track --</option>
+              </select>
+              <button type="button" id="btnRefAnalyzePicked" class="btn-primary btn-sm">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                </svg>
+                <span>Analyze Track</span>
+              </button>
+            </div>
+
+            <!-- YouTube URL or query -->
+            <div class="ref-url-group">
+              <input type="text" id="refYoutubeUrlInput" placeholder="Or paste YouTube URL / Song Title..." />
+              <button type="button" id="btnRefAnalyzeUrl" class="btn-secondary btn-sm">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 21l-6-6m2-5a7 7 0 1 1-14 0 7 7 0 0 1 14 0z"></path>
+                </svg>
+                <span>Analyze URL</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Loading Overlay -->
+        <div id="refLoadingOverlay" class="ref-loading-overlay hidden">
+          <div class="ref-spinner-box">
+            <div class="spinner"></div>
+            <h3>Deconstructing Audio Reference...</h3>
+            <p>Extracting onset transients, BPM tempo, musical key, 16-step drum rhythms & mix spectrum.</p>
+          </div>
+        </div>
+
+        <!-- Empty State Prompt -->
+        <div id="refEmptyState" class="ref-empty-state card">
+          <div class="ref-empty-icon">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <circle cx="12" cy="12" r="9"></circle>
+              <path d="M10 8l6 4-6 4V8z"></path>
+              <path d="M3 12h3M18 12h3"></path>
+            </svg>
+          </div>
+          <h3>No Reference Track Loaded</h3>
+          <p>Select any downloaded track from the dropdown above, paste a YouTube link, or click "Analyze as Reference" directly from Crate Digging or Sample Stash.</p>
+        </div>
+
+        <!-- Main Analysis Dashboard Content (Hidden until track analyzed) -->
+        <div id="refContentArea" class="ref-content-area hidden">
+          <!-- Overview Card -->
+          <div class="card ref-overview-card">
+            <div class="ref-overview-top">
+              <div class="ref-meta-info">
+                <h3 id="refTrackTitle" class="ref-track-title">Track Title</h3>
+                <p id="refTrackArtist" class="ref-track-artist">Artist Name</p>
+              </div>
+
+              <div class="ref-badges-row">
+                <div class="ref-stat-box">
+                  <span class="ref-stat-label">TEMPO</span>
+                  <span id="refBpmValue" class="ref-stat-val">120 BPM</span>
+                </div>
+                <div class="ref-stat-box">
+                  <span class="ref-stat-label">KEY / SCALE</span>
+                  <span id="refKeyValue" class="ref-stat-val">C Major (8B)</span>
+                </div>
+                <div class="ref-stat-box">
+                  <span class="ref-stat-label">TIME SIG</span>
+                  <span id="refTimeSigValue" class="ref-stat-val">4/4</span>
+                </div>
+                <div class="ref-stat-box">
+                  <span class="ref-stat-label">ENERGY</span>
+                  <span id="refEnergyValue" class="ref-stat-val">Medium</span>
+                </div>
+              </div>
+
+              <div class="ref-overview-actions">
+                <button type="button" id="btnRefDeepAiAnalyze" class="btn-secondary btn-sm" title="Run Gemini AI deep arrangement breakdown">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"></path>
+                  </svg>
+                  <span>Deep AI Breakdown</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="ref-groove-banner">
+              <span class="ref-groove-icon">🥁</span>
+              <div class="ref-groove-text">
+                <strong>Groove Style & Pocket Feel:</strong>
+                <span id="refGrooveStyle">Classic 4-on-the-Floor House Groove</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section Timeline Card -->
+          <div class="card ref-timeline-card">
+            <div class="card-header">
+              <h3>Structural Arrangement Timeline</h3>
+              <span class="ref-header-sub">Click 'Load Grid' to populate the sequencer with that section's drum pattern</span>
+            </div>
+            <div id="refSectionsTimeline" class="ref-sections-timeline-container">
+              <!-- Dynamically populated sections -->
+            </div>
+          </div>
+
+          <!-- 16-Step Drum Groove Transcriber & Web Audio Synthesizer -->
+          <div class="card ref-sequencer-card">
+            <div class="ref-seq-header">
+              <div class="ref-seq-title-group">
+                <h3>16-Step Drum Groove Sequencer</h3>
+                <span class="ref-header-sub">Interactive Web Audio playback & pattern editor</span>
+              </div>
+
+              <div class="ref-seq-controls">
+                <!-- Sound Kit Presets -->
+                <div class="ref-ctrl-item">
+                  <label for="refDrumKitSelect">Drum Kit:</label>
+                  <select id="refDrumKitSelect" class="ref-select-mini">
+                    <option value="808" selected>Roland TR-808 (Sub Boom)</option>
+                    <option value="909">Roland TR-909 (Techno Punch)</option>
+                    <option value="707">Roland TR-707 (80s Digital)</option>
+                    <option value="606">Roland TR-606 (Analog Pop)</option>
+                    <option value="505">Roland TR-505 (Dry New Wave)</option>
+                  </select>
+                </div>
+
+                <div class="ref-ctrl-item">
+                  <label for="refBassPresetSelect">Bass Synth:</label>
+                  <select id="refBassPresetSelect" class="ref-select-mini">
+                    <option value="saw" selected>Acid Saw Synth</option>
+                    <option value="moog">Moog Resonant Sub</option>
+                    <option value="house">90s House Organ</option>
+                  </select>
+                </div>
+
+                <!-- Tempo Slider -->
+                <div class="ref-ctrl-item ref-tempo-group">
+                  <label for="refTempoSlider">Tempo:</label>
+                  <input type="range" id="refTempoSlider" min="50" max="220" value="120" />
+                  <span id="refTempoDisplay" class="ref-tempo-val">120 BPM</span>
+                </div>
+
+                <!-- Transport Actions -->
+                <div class="ref-transport-buttons">
+                  <button type="button" id="btnRefPlaySequencer" class="btn-primary btn-sm">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                    </svg>
+                    <span>Audition Groove</span>
+                  </button>
+
+                  <button type="button" id="btnRefResetSequencer" class="btn-secondary btn-sm" title="Reset pattern to original transcription">
+                    <span>Reset</span>
+                  </button>
+
+                  <button type="button" id="btnRefClearSequencer" class="btn-secondary btn-sm" title="Clear all grid steps">
+                    <span>Clear</span>
+                  </button>
+
+                  <button type="button" id="btnRefExportMidi" class="btn-amber-glow btn-sm" title="Export as Standard Type 0 MIDI for Ableton / FL / Logic">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                      <polyline points="7 10 12 15 17 10"></polyline>
+                      <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    <span>Export MIDI (.mid)</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 16-Step Indicator Header Bar -->
+            <div class="ref-step-indicators-bar">
+              <div class="ref-track-col-spacer"></div>
+              <div class="ref-steps-cols">
+                <!-- 16 steps grouped in 4-step quarter beats -->
+                <div class="ref-step-indicator" data-step="0">1</div>
+                <div class="ref-step-indicator" data-step="1">e</div>
+                <div class="ref-step-indicator" data-step="2">&</div>
+                <div class="ref-step-indicator" data-step="3">a</div>
+                <div class="ref-step-indicator" data-step="4">2</div>
+                <div class="ref-step-indicator" data-step="5">e</div>
+                <div class="ref-step-indicator" data-step="6">&</div>
+                <div class="ref-step-indicator" data-step="7">a</div>
+                <div class="ref-step-indicator" data-step="8">3</div>
+                <div class="ref-step-indicator" data-step="9">e</div>
+                <div class="ref-step-indicator" data-step="10">&</div>
+                <div class="ref-step-indicator" data-step="11">a</div>
+                <div class="ref-step-indicator" data-step="12">4</div>
+                <div class="ref-step-indicator" data-step="13">e</div>
+                <div class="ref-step-indicator" data-step="14">&</div>
+                <div class="ref-step-indicator" data-step="15">a</div>
+              </div>
+            </div>
+
+            <!-- Dynamic Track Sequencer Rows -->
+            <div id="refSequencerRows" class="ref-sequencer-rows">
+              <!-- Dynamically populated by reference.js -->
+            </div>
+          </div>
+
+          <!-- Rhythm Relationships & Fills Grid -->
+          <div class="ref-two-col-grid">
+            <!-- Rhythm Relationships Card -->
+            <div class="card ref-rhythm-card">
+              <div class="card-header">
+                <h3>Rhythm Relationships & Pocket Lock</h3>
+              </div>
+              <div class="ref-rhythm-items">
+                <div class="ref-rhythm-item">
+                  <span class="ref-rhythm-tag">BASS & KICK INTERLOCK</span>
+                  <p id="refBassKickInterlock">Bass notes lock into the kick downbeats, leaving sub frequencies cleanly separated.</p>
+                </div>
+                <div class="ref-rhythm-item">
+                  <span class="ref-rhythm-tag">VOCAL CADENCE ALIGNMENT</span>
+                  <p id="refVocalAlignment">Vocal phrases push on offbeats, landing on snare backbeats.</p>
+                </div>
+                <div class="ref-rhythm-item">
+                  <span class="ref-rhythm-tag">MELODIC COUNTERPOINT</span>
+                  <p id="refLeadCounterpoint">Lead melody stabs reply to the drum pauses in a call-and-response pattern.</p>
+                </div>
+                <div class="ref-rhythm-item">
+                  <span class="ref-rhythm-tag">SWING & HUMAN POCKET</span>
+                  <p id="refPocketNote">Human feel with slight shuffle on 16th-note subdivisions.</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Drum Fills Breakdown Card -->
+            <div class="card ref-fills-card">
+              <div class="card-header">
+                <h3>Notable Drum Fills & Transitions</h3>
+                <span class="ref-header-sub">Audition transition breaks with 1 click</span>
+              </div>
+              <div id="refFillsList" class="ref-fills-list">
+                <!-- Dynamically populated fills -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Sonic Spectrum & Mix Architecture -->
+          <div class="card ref-sonic-card-container">
+            <div class="card-header">
+              <div class="ref-sonic-title-group">
+                <h3>Sonic Spectrum & Mix Architecture</h3>
+                <span class="ref-header-sub">Frequency pocket allocations, stereo field imaging, and relative mix levels</span>
+              </div>
+              <div class="ref-stereo-advice-box">
+                <span class="ref-advice-label">Stereo Field Advice:</span>
+                <span id="refStereoAdviceText">Mono below 120Hz; wide stereo spread from 2.5kHz upward.</span>
+              </div>
+            </div>
+
+            <!-- Frequency & Spatial Elements Breakdown -->
+            <div id="refSonicElementsList" class="ref-sonic-elements-grid">
+              <!-- Dynamically populated 7 elements -->
+            </div>
+
+            <!-- Clashes & Producer Tips Grid -->
+            <div class="ref-two-col-grid" style="margin-top: 1.25rem;">
+              <div class="ref-box-clashes">
+                <h4>Frequency Clash Warnings</h4>
+                <ul id="refClashesList" class="ref-bullet-list">
+                  <!-- Populated dynamically -->
+                </ul>
+              </div>
+
+              <div class="ref-box-tips">
+                <h4>Producer Mixing & Arrangement Tips</h4>
+                <ul id="refProducerTipsList" class="ref-bullet-list">
+                  <!-- Populated dynamically -->
+                </ul>
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
 
@@ -1166,6 +1465,7 @@
   </div>
 
   <script src="chopper.js?v=12"></script>
+  <script src="reference.js?v=1"></script>
   <script src="app.js?v=37"></script>
 
 

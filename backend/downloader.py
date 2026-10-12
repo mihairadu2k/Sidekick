@@ -112,7 +112,8 @@ def get_base_ydl_opts() -> dict:
         'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
         'extractor_args': {
             'youtube': {
-                'player_client': ['android', 'ios', 'tv', 'web'],
+                'player_client': ['android', 'visionos', 'web'],
+                'player_skip': ['webpage', 'configs'],
             }
         },
     }
@@ -193,17 +194,27 @@ def extract_video_info(url: str) -> VideoInfoResponse:
             info = ydl.extract_info(url, download=False)
     except Exception as first_err:
         err_msg = str(first_err).lower()
-        if any(w in err_msg for w in ["403", "forbidden", "bot", "sign in"]):
-            logger.warning(f"Metadata challenge encountered for {url}: {err_msg[:80]}. Retrying with android client...")
+        if any(w in err_msg for w in ["403", "forbidden", "bot", "sign in", "player response", "failed to extract"]):
+            logger.warning(f"Metadata challenge encountered for {url}: {err_msg[:80]}. Retrying with visionos client...")
             fallback_opts = dict(ydl_opts)
-            fallback_opts['extractor_args'] = {'youtube': {'player_client': ['android', 'web']}}
+            fallback_opts['extractor_args'] = {
+                'youtube': {
+                    'player_client': ['visionos', 'android', 'web'],
+                    'player_skip': ['webpage', 'configs']
+                }
+            }
             try:
                 with yt_dlp.YoutubeDL(fallback_opts) as fydl:
                     info = fydl.extract_info(url, download=False)
             except Exception as second_err:
-                logger.warning(f"Fallback 1 failed: {second_err}. Retrying with ios client...")
+                logger.warning(f"Fallback 1 failed: {second_err}. Retrying with android client alone...")
                 fallback_opts2 = dict(ydl_opts)
-                fallback_opts2['extractor_args'] = {'youtube': {'player_client': ['ios', 'web']}}
+                fallback_opts2['extractor_args'] = {
+                    'youtube': {
+                        'player_client': ['android'],
+                        'player_skip': ['webpage', 'configs']
+                    }
+                }
                 with yt_dlp.YoutubeDL(fallback_opts2) as fydl2:
                     info = fydl2.extract_info(url, download=False)
         else:
@@ -623,24 +634,34 @@ class DownloadManager:
                         return ydl.extract_info(url, download=True)
                 except Exception as first_err:
                     err_msg = str(first_err).lower()
-                    if any(w in err_msg for w in ["403", "forbidden", "bot", "sign in"]):
-                        logger.warning(f"Download challenge encountered for {url}: {err_msg[:80]}. Retrying with android client fallback...")
+                    if any(w in err_msg for w in ["403", "forbidden", "bot", "sign in", "player response", "failed to extract"]):
+                        logger.warning(f"Download challenge encountered for {url}: {err_msg[:80]}. Retrying with visionos client fallback...")
                         fallback_opts = dict(ydl_opts)
-                        fallback_opts['extractor_args'] = {'youtube': {'player_client': ['android', 'web']}}
+                        fallback_opts['extractor_args'] = {
+                            'youtube': {
+                                'player_client': ['visionos', 'android', 'web'],
+                                'player_skip': ['webpage', 'configs']
+                            }
+                        }
                         try:
                             with yt_dlp.YoutubeDL(fallback_opts) as fallback_ydl:
                                 return fallback_ydl.extract_info(url, download=True)
                         except Exception as second_err:
-                            logger.warning(f"Fallback 1 failed: {second_err}. Retrying with ios client fallback...")
+                            logger.warning(f"Fallback 1 failed: {second_err}. Retrying with android client fallback...")
                             fallback_opts2 = dict(ydl_opts)
-                            fallback_opts2['extractor_args'] = {'youtube': {'player_client': ['ios', 'web']}}
+                            fallback_opts2['extractor_args'] = {
+                                'youtube': {
+                                'player_client': ['android'],
+                                'player_skip': ['webpage', 'configs']
+                            }
+                        }
                             try:
                                 with yt_dlp.YoutubeDL(fallback_opts2) as fallback_ydl2:
                                     return fallback_ydl2.extract_info(url, download=True)
                             except Exception as third_err:
-                                logger.warning(f"Fallback 2 failed: {third_err}. Retrying with tv client fallback...")
+                                logger.warning(f"Fallback 2 failed: {third_err}. Retrying with web client fallback...")
                                 fallback_opts3 = dict(ydl_opts)
-                                fallback_opts3['extractor_args'] = {'youtube': {'player_client': ['tv', 'web']}}
+                                fallback_opts3['extractor_args'] = {'youtube': {'player_client': ['web', 'mweb']}}
                                 with yt_dlp.YoutubeDL(fallback_opts3) as fallback_ydl3:
                                     return fallback_ydl3.extract_info(url, download=True)
                     raise first_err

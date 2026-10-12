@@ -55,6 +55,12 @@ from .crate_digger import (
 )
 from .audio_analyzer import analyze_track_dsp
 from .chopper import ChopperExportRequest
+from .reference_analyzer import (
+    ReferenceAnalyzeRequest,
+    ReferenceMidiExportRequest,
+    analyze_track_reference,
+    export_reference_midi_file,
+)
 
 
 # Ensure local bin/ directory is in PATH
@@ -696,6 +702,47 @@ async def export_chopper_pack(req: "ChopperExportRequest"):
         raise HTTPException(status_code=404, detail=str(fe))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Chopper export error: {str(e)}")
+
+
+@app.post("/api/reference/analyze")
+async def api_reference_analyze(req: ReferenceAnalyzeRequest):
+    """
+    Produces full song reference breakdown:
+    BPM, Key, Camelot, 16-step drum groove grid, sections, fills,
+    rhythm relationships, and frequency / stereo mix architecture.
+    """
+    try:
+        return await analyze_track_reference(
+            file_name=req.file_name,
+            youtube_url=req.youtube_url,
+            song_title=req.song_title,
+            artist=req.artist,
+            force_ai=bool(req.force_ai),
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Reference analysis error: {str(e)}")
+
+
+@app.post("/api/reference/export-midi")
+async def api_reference_export_midi(req: ReferenceMidiExportRequest):
+    """
+    Exports a 16-step reference drum & bass pattern as a Type 0 MIDI file (.mid).
+    """
+    try:
+        midi_bytes = export_reference_midi_file(
+            bpm=req.bpm,
+            title=req.title,
+            grid=req.grid,
+        )
+        safe_title = "".join(c for c in req.title if c.isalnum() or c in ("-", "_")).strip() or "reference_pattern"
+        filename = f"{safe_title}_{round(req.bpm)}bpm.mid"
+        return Response(
+            content=midi_bytes,
+            media_type="audio/midi",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"MIDI export error: {str(e)}")
 
 
 # Mount frontend static files
